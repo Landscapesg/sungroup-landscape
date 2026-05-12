@@ -1,7 +1,4 @@
 {
-  "/_not-found/page": "app/_not-found/page.js",
   "/page": "app/page.js",
-  "/plants/page": "app/plants/page.js",
-  "/admin/plants/page": "app/admin/plants/page.js",
   "/admin/plants/new/page": "app/admin/plants/new/page.js"
 }
