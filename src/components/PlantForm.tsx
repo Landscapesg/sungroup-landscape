@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import { Save, ArrowLeft, Loader2, Upload, X, ChevronDown, ChevronUp } from 'lucide-react'
+import { Save, ArrowLeft, Loader2, Upload, X, ChevronDown, ChevronUp, Building2, Check } from 'lucide-react'
 
 interface PlantFormProps { plantId?: string }
 
@@ -14,6 +14,7 @@ export default function PlantForm({ plantId }: PlantFormProps) {
   const [loading, setLoading] = useState(!isNew)
   const [activeSection, setActiveSection] = useState(0)
   const [expanded, setExpanded] = useState<Record<string, boolean>>({ B: true, C: true, D: true, E: true })
+  const [sheOpen, setSheOpen] = useState(false)
 
   const [groups1, setGroups1] = useState<any[]>([])
   const [groups2, setGroups2] = useState<any[]>([])
@@ -22,7 +23,7 @@ export default function PlantForm({ plantId }: PlantFormProps) {
   const [sheUnits, setSheUnits] = useState<any[]>([])
 
   const [form, setForm] = useState({
-    plant_code: '', name_vi: '', name_en: '', scientific_name: '', other_names: '',
+    plant_code: '', name_vi: '', name_en: '', scientific_name: '', other_names: '', species: '',
     group_lv1_id: '', group_lv2_id: '', she_unit_ids: [] as string[],
     cover_image_url: '', flower_leaf_image_url: '', application_image_url: '',
     climate_ids: [] as string[], special_function_ids: [] as string[],
@@ -112,12 +113,12 @@ export default function PlantForm({ plantId }: PlantFormProps) {
   if (loading) return <div className="flex items-center justify-center py-20 text-gray-400"><Loader2 className="animate-spin mr-2" size={20} />Đang tải...</div>
 
   const sheByMang = sheUnits.reduce((acc: any, u: any) => { if (!acc[u.mang]) acc[u.mang] = []; acc[u.mang].push(u); return acc }, {})
-  const tabs = [{ label: '1. Định danh', icon: '🏷️' }, { label: '2. Hình ảnh', icon: '🖼️' }, { label: '3. Sinh thái', icon: '🌿' }, { label: '4. Chuyên sâu', icon: '📘' }]
+  const tabs = [{ label: '1. Định danh', icon: '🏷️' }, { label: '2. Hình ảnh', icon: '🖼️' }, { label: '3. Đặc điểm sinh thái', icon: '🌿' }, { label: '4. Kiến thức chuyên sâu', icon: '📘' }]
 
   const imgFields = [
-    { key: 'cover_image_url', label: 'Ảnh toàn cây (ảnh chính)', note: 'Ảnh tổng thể rõ cây — JPG/PNG', required: true },
-    { key: 'flower_leaf_image_url', label: 'Ảnh hoa / lá', note: 'Ảnh chi tiết đặc trưng — tuỳ loài cây', required: false },
-    { key: 'application_image_url', label: 'Ảnh ứng dụng thực tế', note: 'Cây đang trồng/trưng bày tại công trình thực tế', required: false },
+    { key: 'cover_image_url', label: 'Hình ảnh chính', note: 'Ảnh tổng thể rõ cây — JPG/PNG', required: true },
+    { key: 'flower_leaf_image_url', label: 'Hình ảnh bộ phận cây', note: 'Lá, hoa, thân, quả... ảnh chi tiết đặc trưng', required: false },
+    { key: 'application_image_url', label: 'Hình ảnh ứng dụng', note: 'Cây được ứng dụng trong thực tế — có thể mô tả nhiều ứng dụng khác nhau', required: false },
   ]
 
   const expertSections = [
@@ -127,19 +128,17 @@ export default function PlantForm({ plantId }: PlantFormProps) {
       { key: 'soil_requirement', label: 'Đất & dinh dưỡng', ph: 'Loại đất, pH, nhu cầu phân bón...' },
       { key: 'temperature_range', label: 'Nhiệt độ & khí hậu', ph: 'Ngưỡng nhiệt độ, chịu mưa lạnh không...' },
     ]},
-    { key: 'C', label: 'C — Kỹ thuật chăm sóc', fields: [
-      { key: 'planting_technique', label: 'Trồng & setup ban đầu', ph: 'Chuẩn bị hố, khoảng cách, thời điểm trồng...' },
-      { key: 'watering_fertilizing', label: 'Tưới nước & bón phân', ph: 'Lịch tưới, loại phân, liều lượng, tần suất...' },
-      { key: 'pruning_technique', label: 'Cắt tỉa & tạo hình', ph: 'Thời điểm, kỹ thuật cắt tỉa...' },
-      { key: 'pest_control', label: 'Phòng trừ sâu bệnh', ph: 'Sâu bệnh thường gặp, cách nhận biết & xử lý...' },
-      { key: 'propagation', label: 'Kỹ thuật nhân giống', ph: 'Gieo hạt, giâm cành, ghép, chiết...' },
+    { key: 'C', label: 'C — Kỹ thuật trồng, chăm sóc', fields: [
+      { key: 'planting_technique', label: 'Kỹ thuật trồng, chăm sóc', ph: 'Trồng & setup: chuẩn bị hố, khoảng cách trồng, thời điểm tốt nhất...\nTưới nước & bón phân: lịch tưới, loại phân, liều lượng, tần suất...\nCắt tỉa & tạo hình: thời điểm, kỹ thuật cắt tỉa...\nPhòng trừ sâu bệnh: các loại thường gặp, cách nhận biết & xử lý...' },
     ]},
-    { key: 'D', label: 'D — Ứng dụng cảnh quan', fields: [
-      { key: 'landscape_application', label: 'Ứng dụng trồng & sắp đặt', ph: 'Trồng viền, khối, điểm nhấn, chậu, quảng trường...' },
+    { key: 'D', label: 'D — Kỹ thuật nhân giống', fields: [
+      { key: 'propagation', label: 'Kỹ thuật nhân giống', ph: 'Gieo hạt, giâm cành, ghép, chiết... phương pháp hiệu quả nhất, tỷ lệ thành công...' },
     ]},
-    { key: 'E', label: 'E — Kinh nghiệm thực tế Khối SHE', fields: [
-      { key: 'she_experience', label: 'Kinh nghiệm thực địa Khối SHE', ph: 'Phù hợp điều kiện từng đơn vị, chịu mưa lạnh Bà Nà không...' },
-      { key: 'she_risks', label: 'Rủi ro cần lưu ý', ph: 'Dễ úng, dễ rụng lá, khó vận chuyển...' },
+    { key: 'E', label: 'E — Ứng dụng cảnh quan', fields: [
+      { key: 'landscape_application', label: 'Ứng dụng cảnh quan', ph: 'Trồng viền, trồng khối, điểm nhấn, chậu, ban công, quảng trường...\nSắp đặt & tiểu cảnh: cách phối cây, tạo tiểu cảnh, trưng bày chuyên nghiệp...' },
+    ]},
+    { key: 'F', label: 'F — Kinh nghiệm thực tế Khối SHE', fields: [
+      { key: 'she_experience', label: 'Kinh nghiệm & Rủi ro thực tế', ph: 'Kinh nghiệm thực địa: phù hợp điều kiện từng đơn vị không, chịu mưa lạnh Bà Nà không...\nRủi ro cần lưu ý: dễ úng, dễ rụng lá, dễ sâu bệnh, khó vận chuyển...' },
     ]},
   ]
 
@@ -189,6 +188,8 @@ export default function PlantForm({ plantId }: PlantFormProps) {
                 <input className="input italic" placeholder="VD: Rhododendron simsii" value={form.scientific_name} onChange={e => upd('scientific_name', e.target.value)} /></div>
               <div className="col-span-2"><label className="block text-sm font-medium text-gray-600 mb-1">Tên gọi khác</label>
                 <input className="input" placeholder="Nhập các tên khác, cách nhau bằng dấu phẩy" value={form.other_names} onChange={e => upd('other_names', e.target.value)} /></div>
+              <div className="col-span-2"><label className="block text-sm font-medium text-gray-600 mb-1">Loài</label>
+                <input className="input" placeholder="VD: Thực vật hạt kín, Hòa thảo..." value={(form as any).species} onChange={e => upd('species', e.target.value)} /></div>
             </div>
           </div>
           <div className="card p-6">
@@ -209,21 +210,56 @@ export default function PlantForm({ plantId }: PlantFormProps) {
             </div>
           </div>
           <div className="card p-6">
-            <h2 className="font-semibold text-gray-700 mb-1 text-sm uppercase tracking-wide text-forest-700">Đơn vị Khối SHE đang trồng</h2>
-            <p className="text-xs text-gray-400 mb-4">Chọn một hoặc nhiều đơn vị</p>
-            {Object.entries(sheByMang).map(([mang, units]) => (
-              <div key={mang} className="mb-4">
-                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">{mang}</div>
-                <div className="flex flex-wrap gap-2">
-                  {(units as any[]).map((u: any) => (
-                    <button key={u.id} type="button" onClick={() => toggleArr('she_unit_ids', u.id)}
-                      className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${form.she_unit_ids.includes(u.id) ? 'bg-forest-600 text-white border-forest-600' : 'bg-white text-gray-600 border-gray-200 hover:border-forest-300'}`}>
-                      <span className="font-mono mr-1 opacity-60">{u.code}</span>{u.name}
-                    </button>
-                  ))}
+            <h2 className="font-semibold text-gray-700 mb-3 text-sm uppercase tracking-wide text-forest-700">Đơn vị Khối SHE đang trồng</h2>
+            <div className="relative">
+              <button type="button" onClick={() => setSheOpen(!sheOpen)}
+                className="w-full flex items-center justify-between px-4 py-3 border border-gray-200 rounded-xl bg-white hover:border-forest-400 transition-colors">
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <Building2 size={15} className="text-forest-600 flex-shrink-0" />
+                  {form.she_unit_ids.length === 0 ? (
+                    <span className="text-sm text-gray-400">-- Chọn đơn vị --</span>
+                  ) : (
+                    <div className="flex flex-wrap gap-1.5">
+                      {form.she_unit_ids.map((id: string) => {
+                        const u = sheUnits.find((x: any) => x.id === id)
+                        return u ? (
+                          <span key={id} className="bg-forest-100 text-forest-700 text-xs px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
+                            <span className="font-mono">{u.code}</span>
+                            <button type="button" onClick={(e) => { e.stopPropagation(); toggleArr('she_unit_ids', id) }}
+                              className="hover:text-red-500"><X size={10} /></button>
+                          </span>
+                        ) : null
+                      })}
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+                <ChevronDown size={16} className={`text-gray-400 flex-shrink-0 transition-transform ${sheOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {sheOpen && (
+                <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-xl max-h-72 overflow-y-auto">
+                  {Object.entries(sheByMang).map(([mang, units]) => (
+                    <div key={mang}>
+                      <div className="px-4 py-2 bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-100 sticky top-0">{mang}</div>
+                      {(units as any[]).map((u: any) => (
+                        <button key={u.id} type="button" onClick={() => toggleArr('she_unit_ids', u.id)}
+                          className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-forest-50 transition-colors border-b border-gray-50 last:border-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-xs text-gray-400 w-16">{u.code}</span>
+                            <span className="text-sm text-gray-700">{u.name}</span>
+                          </div>
+                          {form.she_unit_ids.includes(u.id) && <Check size={14} className="text-forest-600" />}
+                        </button>
+                      ))}
+                    </div>
+                  ))}
+                  <div className="px-4 py-2.5 border-t border-gray-100 bg-gray-50 flex justify-between items-center">
+                    <span className="text-xs text-gray-500">Đã chọn {form.she_unit_ids.length} đơn vị</span>
+                    <button type="button" onClick={() => setSheOpen(false)} className="text-xs text-forest-600 font-semibold hover:underline">Xong ✓</button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

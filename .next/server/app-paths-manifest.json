@@ -1,4 +1,3 @@
 {
-  "/page": "app/page.js",
   "/admin/plants/new/page": "app/admin/plants/new/page.js"
 }
