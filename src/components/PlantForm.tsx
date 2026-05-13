@@ -55,6 +55,7 @@ export default function PlantForm({ plantId }: PlantFormProps) {
           plant_code: data.plant_code || '', name_vi: data.name_vi || '',
           name_en: data.name_en || '', scientific_name: data.scientific_name || '',
           other_names: (data.other_names || []).join(', '),
+          species: data.species || '',
           group_lv1_id: data.group_lv1_id || '', group_lv2_id: data.group_lv2_id || '',
           she_unit_ids: data.she_unit_ids || [],
           cover_image_url: data.cover_image_url || '',
