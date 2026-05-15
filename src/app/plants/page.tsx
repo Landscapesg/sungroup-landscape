@@ -88,7 +88,8 @@ export default function PlantsPage() {
             {plants.map((p) => {
               const unitCodes = (p.she_unit_ids || []).map((id: string) => sheUnits.find(u => u.id === id)?.code).filter(Boolean)
               return (
-                <div key={p.id} className="bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-md hover:border-forest-200 transition-all group">
+                <Link key={p.id} href={`/plants/${p.id}`}
+                  className="bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-md hover:border-forest-200 transition-all group block">
                   <div className="h-36 bg-forest-50 flex items-center justify-center group-hover:bg-forest-100 transition-colors relative">
                     {p.cover_image_url ? (
                       <img src={p.cover_image_url} alt={p.name_vi} className="w-full h-full object-cover" />
@@ -110,7 +111,7 @@ export default function PlantsPage() {
                       </div>
                     )}
                   </div>
-                </div>
+                </Link>
               )
             })}
           </div>
