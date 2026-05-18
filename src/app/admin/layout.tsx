@@ -2,7 +2,6 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { Leaf, LayoutDashboard, TreePine, Database, ChevronRight, LogOut } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
 
 const navItems = [
   { href: '/admin', label: 'Tổng quan', icon: LayoutDashboard, exact: true },
@@ -14,15 +13,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname()
   const router = useRouter()
 
-  async function handleLogout() {
-    await supabase.auth.signOut()
+  function handleLogout() {
+    document.cookie = 'admin_session=; path=/; max-age=0'
     router.push('/admin/login')
     router.refresh()
   }
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
-      {/* Sidebar */}
       <aside className="w-60 bg-white border-r border-gray-100 flex flex-col flex-shrink-0">
         <div className="px-5 py-5 border-b border-gray-100">
           <Link href="/" className="flex items-center gap-3 group">
@@ -37,16 +35,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
           <div className="text-xs font-semibold text-gray-400 px-3 mb-3 uppercase tracking-wider">Ứng dụng</div>
-          <Link href="/plants" className="sidebar-link">
-            <Leaf size={16} /> Thư viện cây (Public)
-          </Link>
+          <Link href="/plants" className="sidebar-link"><Leaf size={16} /> Thư viện cây (Public)</Link>
           <div className="text-xs font-semibold text-gray-400 px-3 mt-5 mb-3 uppercase tracking-wider">Quản trị</div>
           {navItems.map((item) => {
             const active = item.exact ? pathname === item.href : pathname.startsWith(item.href)
             return (
               <Link key={item.href} href={item.href} className={`sidebar-link ${active ? 'active' : ''}`}>
-                <item.icon size={16} />
-                {item.label}
+                <item.icon size={16} />{item.label}
               </Link>
             )
           })}
