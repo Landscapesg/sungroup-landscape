@@ -1,11 +1,13 @@
 'use client'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Leaf, LayoutDashboard, TreePine, Database, ChevronRight, LogOut } from 'lucide-react'
+import { Leaf, LayoutDashboard, TreePine, Database, ChevronRight, LogOut, Building2 } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
 
 const navItems = [
   { href: '/admin', label: 'Tổng quan', icon: LayoutDashboard, exact: true },
   { href: '/admin/plants', label: 'Quản lý Cây', icon: Leaf },
+  { href: '/admin/units', label: 'Quản lý Đơn vị', icon: Building2 },
   { href: '/admin/master-data', label: 'Master Data', icon: Database },
 ]
 
@@ -69,7 +71,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <>
               <ChevronRight size={14} />
               <span className="text-gray-800 font-medium">
-                {pathname.includes('/plants') ? 'Quản lý Cây' : 'Master Data'}
+                {pathname.includes('/plants') ? 'Quản lý Cây' :
+                 pathname.includes('/units') ? 'Quản lý Đơn vị' : 'Master Data'}
               </span>
             </>
           )}
