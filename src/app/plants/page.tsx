@@ -6,6 +6,7 @@ import { Search, Leaf, TreePine, ArrowLeft } from 'lucide-react'
 
 export default function PlantsPage() {
   const [plants, setPlants] = useState<any[]>([])
+  const [allPlants, setAllPlants] = useState<any[]>([])
   const [groups, setGroups] = useState<any[]>([])
   const [sheUnits, setSheUnits] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -21,6 +22,10 @@ export default function PlantsPage() {
   useEffect(() => {
     async function load() {
       setLoading(true)
+      // Load tất cả cây để đếm theo nhóm
+      const { data: all } = await supabase.from('plants').select('id, group_lv1_id, she_unit_ids').eq('status', 'ACTIVE')
+      setAllPlants(all || [])
+
       let q = supabase.from('plants').select(`*, g1:plant_groups!group_lv1_id(name)`).eq('status', 'ACTIVE').order('name_vi')
       if (search) q = q.ilike('name_vi', `%${search}%`)
       if (selectedGroup) q = q.eq('group_lv1_id', selectedGroup)
@@ -33,6 +38,10 @@ export default function PlantsPage() {
     load()
   }, [search, selectedGroup, selectedUnit])
 
+  const countByGroup = (groupId: string) => {
+    return allPlants.filter(p => p.group_lv1_id === groupId).length
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div style={{ background: 'linear-gradient(135deg, #0a280a 0%, #1e6e1e 100%)' }} className="px-6 py-10">
@@ -44,7 +53,7 @@ export default function PlantsPage() {
             <TreePine size={28} className="text-green-300" />
             <h1 className="font-display text-3xl text-white">Thư viện Cây cảnh quan</h1>
           </div>
-          <p className="text-green-200 text-sm mb-6">{plants.length} loài cây · Khối Giải trí & Nghỉ dưỡng Sun Group (SHE)</p>
+          <p className="text-green-200 text-sm mb-6">{allPlants.length} loài cây · Khối Giải trí & Nghỉ dưỡng Sun Group (SHE)</p>
           <div className="flex gap-3 flex-wrap">
             <div className="flex-1 min-w-64 relative">
               <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -64,12 +73,12 @@ export default function PlantsPage() {
         <div className="flex gap-2 flex-wrap mb-6">
           <button onClick={() => setSelectedGroup('')}
             className={`text-sm px-4 py-2 rounded-full border transition-colors font-medium ${!selectedGroup ? 'bg-forest-600 text-white border-forest-600' : 'bg-white text-gray-600 border-gray-200 hover:border-forest-300'}`}>
-            Tất cả ({plants.length})
+            Tất cả ({allPlants.length})
           </button>
           {groups.map(g => (
             <button key={g.id} onClick={() => setSelectedGroup(selectedGroup === g.id ? '' : g.id)}
               className={`text-sm px-4 py-2 rounded-full border transition-colors font-medium ${selectedGroup === g.id ? 'bg-forest-600 text-white border-forest-600' : 'bg-white text-gray-600 border-gray-200 hover:border-forest-300'}`}>
-              {g.name}
+              {g.name} ({countByGroup(g.id)})
             </button>
           ))}
         </div>
