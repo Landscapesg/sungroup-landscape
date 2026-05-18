@@ -316,7 +316,7 @@ export default function HomePage() {
                       <div style={{flex:1,height:'10px',background:'#f3f4f6',borderRadius:'5px',overflow:'hidden'}}>
                         <div style={{height:'100%',background:'#16a34a',borderRadius:'5px',width:`${(cnt1/maxCnt)*100}%`,transition:'width 0.5s'}}/>
                       </div>
-                      <div style={{fontSize:'12px',fontWeight:'600',color:'#111827',minWidth:'30px',textAlign:'right'}}>{cnt1}</div>
+                      <div style={{fontSize:'12px',fontWeight:'600',color:'#111827',minWidth:'50px',textAlign:'right'}}>{cnt1} <span style={{fontSize:'10px',fontWeight:'400',color:'#9ca3af'}}>{unit}</span></div>
                     </div>
                     {/* Cấp 2 */}
                     {children.map(g2 => {
