@@ -296,11 +296,23 @@ export default function HomePage() {
                 if (cnt1 === 0) return null
                 const children = groups2.filter(g => g.parent_id === g1.id)
                 const maxCnt = Math.max(...groups1.map(g => countByGroup1(g.id, selectedUnit.id)), 1)
+                const unitMap: Record<string,string> = {
+                  '6c0c1a87-fa98-42d9-af41-7b337fd16b86': 'cây',
+                  '3b76d630-f9ad-4ba5-b11d-f6a04b1fd7bb': 'cây',
+                  '35fad975-6acd-40e0-aa29-bdab877f51f3': 'cây',
+                  '12156eda-d8c0-4bb4-b259-57eb9a00c3c5': 'm²/m',
+                  'a6a9972f-a654-47e7-8c7a-5d1d04393658': 'cây',
+                  '9f10c3a8-9b0a-4876-b198-b0c3688965ba': 'm²',
+                  '0bc49747-d50f-40e5-b40b-93b83936952a': 'cây',
+                }
+                const unit = unitMap[g1.id] || 'cây'
                 return (
                   <div key={g1.id} style={{marginBottom:'12px'}}>
                     {/* Cấp 1 */}
                     <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'4px'}}>
-                      <div style={{fontSize:'12px',fontWeight:'500',color:'#111827',width:'140px',flexShrink:0}}>{g1.name}</div>
+                      <div style={{fontSize:'12px',fontWeight:'500',color:'#111827',width:'140px',flexShrink:0}}>
+                        {g1.name} <span style={{fontSize:'10px',color:'#9ca3af',fontWeight:'400'}}>({unit})</span>
+                      </div>
                       <div style={{flex:1,height:'10px',background:'#f3f4f6',borderRadius:'5px',overflow:'hidden'}}>
                         <div style={{height:'100%',background:'#16a34a',borderRadius:'5px',width:`${(cnt1/maxCnt)*100}%`,transition:'width 0.5s'}}/>
                       </div>
@@ -330,7 +342,7 @@ export default function HomePage() {
 
             {/* Tổng */}
             <div style={{marginTop:'16px',paddingTop:'16px',borderTop:'1px solid #f3f4f6',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-              <span style={{fontSize:'13px',color:'#6b7280'}}>Tổng số loài cây: <strong style={{color:'#16a34a'}}>{countByUnit(selectedUnit.id)}</strong></span>
+              <span style={{fontSize:'13px',color:'#6b7280'}}>Tổng số nhóm phân loại Cấp 1: <strong style={{color:'#16a34a'}}>{groups1.filter(g => countByGroup1(g.id, selectedUnit.id) > 0).length} nhóm</strong></span>
               <Link href={`/plants?unit=${selectedUnit.id}`} style={{fontSize:'12px',color:'#16a34a',border:'1px solid #16a34a',padding:'6px 14px',borderRadius:'20px',textDecoration:'none'}}>
                 Xem tất cả →
               </Link>
