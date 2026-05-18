@@ -3,8 +3,8 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { TreePine, Mail, Lock, Loader2, Eye, EyeOff } from 'lucide-react'
 
-const ADMIN_EMAIL = 'admin@sungroup.com'
-const ADMIN_PASSWORD = 'SHE@2024!'
+const ADMIN_EMAIL = 'ngocphuc081@gmail.com'
+const ADMIN_PASSWORD = 'Phuc@1990'
 
 export default function AdminLoginPage() {
   const router = useRouter()
