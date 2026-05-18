@@ -221,11 +221,11 @@ export default function UnitsPage() {
                               <span className="text-sm font-semibold text-gray-700">{g1.name}</span>
                               <span className="text-sm font-bold text-forest-600">{totalLv1(u.id, g1.id) || 0} cây</span>
                             </div>
-                            <div className="grid grid-cols-2 gap-2">
+                            <div className="grid grid-cols-2 gap-3">
                               {g1.children.map(g2 => (
-                                <div key={g2.id} className="flex items-center gap-2">
-                                  <label className="text-xs text-gray-500 flex-1 truncate">{g2.name}</label>
-                                  <input type="number" min="0" className="input text-xs text-right w-20 py-1"
+                                <div key={g2.id}>
+                                  <label className="block text-xs text-gray-500 mb-1">{g2.name}</label>
+                                  <input type="number" min="0" className="input text-sm"
                                     placeholder="0"
                                     value={statsForm[u.id]?.[g2.id] || ''}
                                     onChange={e => setStatsForm(f => ({
