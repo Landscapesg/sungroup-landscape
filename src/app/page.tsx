@@ -39,13 +39,14 @@ export default function HomePage() {
   const [groups1, setGroups1] = useState<any[]>([])
   const [groups2, setGroups2] = useState<any[]>([])
   const [allPlants, setAllPlants] = useState<any[]>([])
+  const [unitStats, setUnitStats] = useState<any[]>([])
   const [selectedUnit, setSelectedUnit] = useState<any>(null)
   const [parkScroll, setParkScroll] = useState(0)
   const parkRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     async function loadData() {
-      const [{ count: plants }, { count: unitsCount }, { count: groups }, { data: unitsData }, { data: g1 }, { data: g2 }, { data: plantsData }] = await Promise.all([
+      const [{ count: plants }, { count: unitsCount }, { count: groups }, { data: unitsData }, { data: g1 }, { data: g2 }, { data: plantsData }, { data: statsData }] = await Promise.all([
         supabase.from('plants').select('*', { count: 'exact', head: true }).eq('status', 'ACTIVE'),
         supabase.from('she_units').select('*', { count: 'exact', head: true }),
         supabase.from('plant_groups').select('*', { count: 'exact', head: true }).eq('level', 1),
@@ -53,12 +54,14 @@ export default function HomePage() {
         supabase.from('plant_groups').select('*').eq('level', 1).order('sort_order'),
         supabase.from('plant_groups').select('*').eq('level', 2).order('sort_order'),
         supabase.from('plants').select('id, group_lv1_id, group_lv2_id, she_unit_ids').eq('status', 'ACTIVE'),
+        supabase.from('unit_plant_stats').select('*'),
       ])
       setStats({ plants: plants || 0, units: unitsCount || 0, groups: groups || 0 })
       setUnits(unitsData || [])
       setGroups1(g1 || [])
       setGroups2(g2 || [])
       setAllPlants(plantsData || [])
+      setUnitStats(statsData || [])
     }
     loadData()
   }, [])
@@ -78,9 +81,22 @@ export default function HomePage() {
     setParkScroll(el.scrollLeft + dir * 280)
   }
 
-  const countByUnit = (unitId: string) => allPlants.filter(p => (p.she_unit_ids || []).includes(unitId)).length
-  const countByGroup1 = (gId: string, unitId: string) => allPlants.filter(p => p.group_lv1_id === gId && (p.she_unit_ids || []).includes(unitId)).length
-  const countByGroup2 = (gId: string, unitId: string) => allPlants.filter(p => p.group_lv2_id === gId && (p.she_unit_ids || []).includes(unitId)).length
+  // Dùng unit_plant_stats nếu có, fallback sang đếm she_unit_ids
+  const countByUnit = (unitId: string) => {
+    const stats = unitStats.filter(s => s.unit_id === unitId && !s.group_lv2_id)
+    if (stats.length > 0) return stats.reduce((sum: number, s: any) => sum + (s.quantity || 0), 0)
+    return allPlants.filter(p => (p.she_unit_ids || []).includes(unitId)).length
+  }
+  const countByGroup1 = (gId: string, unitId: string) => {
+    const stat = unitStats.find(s => s.unit_id === unitId && s.group_lv1_id === gId && !s.group_lv2_id)
+    if (stat) return stat.quantity || 0
+    return allPlants.filter(p => p.group_lv1_id === gId && (p.she_unit_ids || []).includes(unitId)).length
+  }
+  const countByGroup2 = (gId: string, unitId: string) => {
+    const stat = unitStats.find(s => s.unit_id === unitId && s.group_lv2_id === gId)
+    if (stat) return stat.quantity || 0
+    return allPlants.filter(p => p.group_lv2_id === gId && (p.she_unit_ids || []).includes(unitId)).length
+  }
   const totalByGroup1 = (gId: string, unitId: string) => countByGroup1(gId, unitId)
 
   const landscapeRatio = (u: any) => {
