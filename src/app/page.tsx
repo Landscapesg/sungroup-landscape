@@ -2,6 +2,7 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { Leaf, ArrowRight, Database, Users, Target, ChevronLeft, ChevronRight } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
 
 const SLIDES = [
   'https://images.unsplash.com/photo-1448375240586-882707db888b?w=1600&q=90',
@@ -33,6 +34,20 @@ const GOALS = [
 
 export default function HomePage() {
   const [current, setCurrent] = useState(0)
+  const [stats, setStats] = useState({ plants: 0, units: 0, groups: 0 })
+
+  // Load stats tự động từ database
+  useEffect(() => {
+    async function loadStats() {
+      const [{ count: plants }, { count: units }, { count: groups }] = await Promise.all([
+        supabase.from('plants').select('*', { count: 'exact', head: true }).eq('status', 'ACTIVE'),
+        supabase.from('she_units').select('*', { count: 'exact', head: true }),
+        supabase.from('plant_groups').select('*', { count: 'exact', head: true }).eq('level', 1),
+      ])
+      setStats({ plants: plants || 0, units: units || 0, groups: groups || 0 })
+    }
+    loadStats()
+  }, [])
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -49,7 +64,6 @@ export default function HomePage() {
 
       {/* HERO SLIDESHOW */}
       <section className="relative h-screen overflow-hidden">
-        {/* Slides */}
         {SLIDES.map((src, i) => (
           <div key={i} className="absolute inset-0 transition-opacity duration-1000"
             style={{ opacity: i === current ? 1 : 0 }}>
@@ -57,17 +71,14 @@ export default function HomePage() {
           </div>
         ))}
 
-        {/* Overlay */}
         <div className="absolute inset-0" style={{background: 'linear-gradient(to bottom, rgba(0,0,0,0.25) 0%, rgba(0,20,0,0.5) 50%, rgba(0,15,0,0.82) 100%)'}} />
 
         {/* Header */}
         <header className="absolute top-0 left-0 right-0 z-20 px-8 py-6 flex items-center justify-between">
-          {/* Logo */}
           <div>
             <div style={{ color: '#fff', fontSize: '18px', fontWeight: '600', letterSpacing: '0.12em', lineHeight: 1 }}>SUNGROUP</div>
             <div style={{ color: 'rgba(200,255,200,0.85)', fontSize: '12px', marginTop: '3px', letterSpacing: '0.04em' }}>SHE — Khối Giải trí & Nghỉ dưỡng</div>
           </div>
-          {/* Nav */}
           <div className="flex gap-3 items-center">
             <Link href="/plants" className="text-white/85 hover:text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-white/10 transition-colors">
               Tra cứu cây
@@ -80,8 +91,9 @@ export default function HomePage() {
 
         {/* Content */}
         <div className="absolute inset-0 z-10 flex flex-col items-center justify-center text-center px-6">
-          <div className="mb-4" style={{color: 'rgba(200,255,200,0.7)', fontSize: '12px', letterSpacing: '0.2em', textTransform: 'uppercase'}}>
-            Landscape Khối SHE
+          {/* ① LANDSCAPE KHỐI SHE — to hơn */}
+          <div className="mb-5" style={{color: 'rgba(200,255,200,0.85)', fontSize: '15px', letterSpacing: '0.25em', textTransform: 'uppercase', fontWeight: '500'}}>
+            LANDSCAPE KHỐI SHE
           </div>
           <h1 style={{fontSize: '62px', fontWeight: '300', color: '#fff', lineHeight: 1.1, marginBottom: '8px', letterSpacing: '-0.01em'}}>
             Làm đẹp
@@ -90,7 +102,7 @@ export default function HomePage() {
             những vùng đất
           </h2>
           <p style={{color: 'rgba(255,255,255,0.72)', fontSize: '16px', maxWidth: '540px', lineHeight: '1.75', marginBottom: '36px'}}>
-            Nền tảng số hóa tri thức cảnh quan của <strong style={{color:'#fff'}}>23 đơn vị</strong> thuộc Khối Giải trí & Nghỉ dưỡng Sun Group — từ núi rừng Bà Nà đến bãi biển Phú Quốc.
+            Nền tảng số hóa tri thức cảnh quan của <strong style={{color:'#fff'}}>{stats.units || 23} đơn vị</strong> thuộc Khối Giải trí & Nghỉ dưỡng Sun Group — từ núi rừng Bà Nà đến bãi biển Phú Quốc.
           </p>
           <div style={{display:'flex', gap:'12px', flexWrap:'wrap', justifyContent:'center'}}>
             <Link href="/plants" style={{background:'#fff', color:'#14532d', fontWeight:'500', fontSize:'14px', padding:'12px 28px', borderRadius:'10px', display:'flex', alignItems:'center', gap:'8px', textDecoration:'none', boxShadow:'0 4px 20px rgba(0,0,0,0.2)'}}>
@@ -110,7 +122,6 @@ export default function HomePage() {
           <ChevronRight size={20} />
         </button>
 
-        {/* Dots */}
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 flex gap-2">
           {SLIDES.map((_, i) => (
             <button key={i} onClick={() => setCurrent(i)}
@@ -118,19 +129,18 @@ export default function HomePage() {
           ))}
         </div>
 
-        {/* Slide counter */}
         <div className="absolute bottom-8 right-8 z-20 text-white/50 text-sm">
           {String(current + 1).padStart(2,'0')} / {String(SLIDES.length).padStart(2,'0')}
         </div>
       </section>
 
-      {/* STATS */}
+      {/* ② STATS — tự động từ database */}
       <section style={{background:'#14532d', padding:'40px 24px'}}>
         <div style={{maxWidth:'960px', margin:'0 auto', display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'8px', textAlign:'center'}}>
           {[
-            { value: '23', label: 'Đơn vị thành viên', sub: 'Giải trí & Nghỉ dưỡng' },
-            { value: '193+', label: 'Loài cây', sub: 'Đang cập nhật' },
-            { value: '6', label: 'Nhóm phân loại', sub: 'Cấp 1' },
+            { value: stats.units || '—', label: 'Đơn vị thành viên', sub: 'Giải trí & Nghỉ dưỡng' },
+            { value: stats.plants ? `${stats.plants}+` : '—', label: 'Loài cây', sub: 'Đang cập nhật' },
+            { value: stats.groups || '—', label: 'Nhóm phân loại', sub: 'Cấp 1' },
             { value: '4', label: 'Vùng khí hậu', sub: 'Từ núi cao đến biển' },
           ].map((s, i) => (
             <div key={i}>
@@ -164,7 +174,7 @@ export default function HomePage() {
               </div>
             ))}
           </div>
-          <p style={{textAlign:'center', color:'#9ca3af', fontSize:'13px', marginTop:'16px'}}>và 17 đơn vị khác trong hệ thống...</p>
+          <p style={{textAlign:'center', color:'#9ca3af', fontSize:'13px', marginTop:'16px'}}>và {stats.units ? stats.units - 6 : 17} đơn vị khác trong hệ thống...</p>
         </div>
       </section>
 
