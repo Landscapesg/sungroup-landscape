@@ -84,10 +84,9 @@ export default function PlantForm({ plantId }: PlantFormProps) {
     }
   }, [plantId, isNew])
 
-  // Load groups2 khi user chọn nhóm cấp 1 mới
+  // Load groups2 khi user chọn nhóm cấp 1 mới — dùng 1 lần setForm để tránh race condition
   function handleLv1Change(id: string) {
-    upd('group_lv1_id', id)
-    upd('group_lv2_id', '')
+    setForm(p => ({ ...p, group_lv1_id: id, group_lv2_id: '' }))
     if (id) {
       supabase.from('plant_groups').select('*').eq('level', 2).eq('parent_id', id).order('sort_order')
         .then(({ data }) => setGroups2(data || []))
@@ -98,8 +97,10 @@ export default function PlantForm({ plantId }: PlantFormProps) {
 
   const upd = (key: string, val: any) => setForm(p => ({ ...p, [key]: val }))
   const toggleArr = (key: 'climate_ids' | 'special_function_ids' | 'she_unit_ids', val: string) => {
-    const arr = form[key] as string[]
-    upd(key, arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val])
+    setForm(p => {
+      const arr = (p[key] as string[]) || []
+      return { ...p, [key]: arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val] }
+    })
   }
 
   async function handleSave() {
