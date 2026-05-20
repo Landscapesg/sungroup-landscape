@@ -114,11 +114,23 @@ export default function PlantForm({ plantId }: PlantFormProps) {
       group_lv1_id: form.group_lv1_id || null,
       group_lv2_id: form.group_lv2_id || null,
     }
-    const { error } = isNew
-      ? await supabase.from('plants').insert(payload)
-      : await supabase.from('plants').update(payload).eq('id', plantId!)
+    let error: any = null
+    let result: any = null
+    if (isNew) {
+      const res = await supabase.from('plants').insert(payload)
+      error = res.error
+    } else {
+      const res = await supabase.from('plants').update(payload).eq('id', plantId!).select()
+      error = res.error
+      result = res.data
+    }
     setSaving(false)
-    if (error) { alert('Lỗi: ' + error.message); return }
+    if (error) {
+      console.error('Save error:', error)
+      alert('Lỗi: ' + error.message + '\n\nCode: ' + error.code + '\nDetails: ' + error.details)
+      return
+    }
+    console.log('Saved OK:', result)
     router.push('/admin/plants')
   }
 
