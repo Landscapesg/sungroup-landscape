@@ -118,7 +118,7 @@ export default function PlantsPage() {
           className="bg-transparent text-sm text-gray-300 placeholder-gray-600 outline-none w-44"
           placeholder="Tìm cây..."
           value={search}
-          onChange={e => { setSearch(e.target.value); setView('toc') }}
+          onChange={e => { setSearch(e.target.value); if (view !== 'toc') setView('toc') }}
         />
         {search && (
           <button onClick={() => setSearch('')}><X size={12} className="text-gray-500 hover:text-white" /></button>
@@ -193,17 +193,34 @@ export default function PlantsPage() {
           <div className="mt-4 h-px bg-[#c8c390]" />
         </div>
 
+        {/* search result banner */}
+        {search && (
+          <div className="flex items-center justify-between mb-4 px-1">
+            <span className="text-sm text-[#6b8e5a]">
+              Tìm thấy <strong>{plants.length}</strong> kết quả cho "<em>{search}</em>"
+            </span>
+            <button onClick={() => setSearch('')} className="text-xs text-[#9a9a82] hover:text-[#2d6a30] flex items-center gap-1">
+              <X size={11} />Xoá tìm kiếm
+            </button>
+          </div>
+        )}
+
         {/* danh sách nhóm */}
         <div className="space-y-8 overflow-y-auto" style={{ maxHeight: '60vh' }}>
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <Leaf size={24} className="text-[#6b8e5a] animate-pulse" />
             </div>
+          ) : plants.length === 0 ? (
+            <div className="text-center py-12 text-[#9a9a82]">
+              <Leaf size={28} className="mx-auto mb-3 opacity-30" />
+              <p className="text-sm">Không tìm thấy cây nào phù hợp</p>
+            </div>
           ) : lv1Groups.map((g1, gi) => {
             const gPlants = plants.filter(p => p.group_lv1_id === g1.id)
             if (!gPlants.length) return null
-            const shown = gPlants.slice(0, 6)
-            const rest  = gPlants.length - 6
+            const shown = search ? gPlants : gPlants.slice(0, 6)
+            const rest  = search ? 0 : gPlants.length - 6
             return (
               <div key={g1.id}>
                 <div className="flex items-baseline gap-4 mb-3">
