@@ -155,10 +155,10 @@ export default function PlantsPage() {
     : undefined
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: '#f5f3ee' }}>
+    <div className="h-screen flex flex-col overflow-hidden" style={{ background: '#f5f3ee' }}>
 
       {/* HEADER */}
-      <div style={{ background: 'linear-gradient(135deg, #0a280a 0%, #1e6e1e 100%)' }} className="px-6 py-5 sticky top-0 z-50">
+      <div style={{ background: 'linear-gradient(135deg, #0a280a 0%, #1e6e1e 100%)' }} className="px-6 py-5 flex-shrink-0 z-50">
         <div className="max-w-screen-xl mx-auto">
           <Link href="/" className="inline-flex items-center gap-1.5 text-green-300 hover:text-white text-xs mb-4 transition-colors">
             <ArrowLeft size={13} />Trang chủ
@@ -195,7 +195,7 @@ export default function PlantsPage() {
       </div>
 
       {/* 3-COLUMN BODY */}
-      <div className="flex-1 flex overflow-hidden" style={{ height: 'calc(100vh - 112px)' }}>
+      <div className="flex-1 flex overflow-hidden" style={{ flex: 1, minHeight: 0 }}>
 
         {/* COL 1: SIDEBAR */}
         <aside className="w-56 flex-shrink-0 bg-white border-r border-gray-200 overflow-y-auto">
