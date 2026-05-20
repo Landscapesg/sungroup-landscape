@@ -13,6 +13,7 @@ export default function AdminPlantsPage() {
   const [selectedGroup, setSelectedGroup] = useState('')
   const [selectedUnit, setSelectedUnit]   = useState('')
   const [selectedMang, setSelectedMang]   = useState('')
+  const [filterNoLv2, setFilterNoLv2]     = useState(false)
 
   // delete confirm
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null)
@@ -42,11 +43,12 @@ export default function AdminPlantsPage() {
         const unitIds = sheUnits.filter(u => u.mang === selectedMang).map(u => u.id)
         result = result.filter((p: any) => (p.she_unit_ids || []).some((id: string) => unitIds.includes(id)))
       }
+      if (filterNoLv2) result = result.filter((p: any) => !p.group_lv2_id)
       setPlants(result)
       setLoading(false)
     }
     load()
-  }, [search, selectedGroup, selectedUnit, selectedMang, sheUnits])
+  }, [search, selectedGroup, selectedUnit, selectedMang, sheUnits, filterNoLv2])
 
   const filteredUnits = selectedMang ? sheUnits.filter(u => u.mang === selectedMang) : sheUnits
 
@@ -227,6 +229,17 @@ export default function AdminPlantsPage() {
           <option value="">Tất cả đơn vị</option>
           {filteredUnits.map(u => <option key={u.id} value={u.id}>{u.code} — {u.name}</option>)}
         </select>
+        <button
+          onClick={() => setFilterNoLv2(!filterNoLv2)}
+          className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm border transition-colors flex-shrink-0 ${
+            filterNoLv2
+              ? 'bg-amber-500 text-white border-amber-500'
+              : 'bg-white text-gray-500 border-gray-200 hover:border-amber-400 hover:text-amber-600'
+          }`}
+        >
+          <AlertTriangle size={14} />
+          Chưa có lv2 {filterNoLv2 && `(${plants.length})`}
+        </button>
       </div>
 
       {/* ── TABLE ── */}
