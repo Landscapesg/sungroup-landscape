@@ -114,6 +114,10 @@ export default function PlantForm({ plantId }: PlantFormProps) {
       height_max_m: form.height_max_m ? parseFloat(form.height_max_m as string) : null,
       group_lv1_id: form.group_lv1_id || null,
       group_lv2_id: form.group_lv2_id || null,
+      // she_unit_ids là uuid[] — đảm bảo không gửi string rỗng
+      she_unit_ids: form.she_unit_ids.filter((id: string) => id && id.length > 0),
+      climate_ids: form.climate_ids.filter((id: string) => id && id.length > 0),
+      special_function_ids: form.special_function_ids.filter((id: string) => id && id.length > 0),
     }
     let error: any = null
     let result: any = null
