@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useMemo } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { Search, Leaf, TreePine, List, X, ChevronLeft, ChevronRight, ArrowRight, Home } from 'lucide-react'
@@ -22,37 +22,38 @@ interface Plant {
 type View = 'toc' | 'catalog'
 
 export default function PlantsPage() {
-  const [plants, setPlants]     = useState<Plant[]>([])
-  const [groups, setGroups]     = useState<Group[]>([])
-  const [sheUnits, setSheUnits] = useState<Unit[]>([])
-  const [loading, setLoading]   = useState(true)
-  const [search, setSearch]     = useState('')
-  const [view, setView]         = useState<View>('toc')
+  const [allPlants, setAllPlants] = useState<Plant[]>([])  // toàn bộ, không filter
+  const [groups, setGroups]       = useState<Group[]>([])
+  const [sheUnits, setSheUnits]   = useState<Unit[]>([])
+  const [loading, setLoading]     = useState(true)
+  const [search, setSearch]       = useState('')
+  const [view, setView]           = useState<View>('toc')
   const [currentIdx, setCurrentIdx] = useState(0)
   const [activeImg, setActiveImg]   = useState<'cover'|'flower'|'app'>('cover')
   const [showSidebar, setShowSidebar] = useState(false)
   const searchRef = useRef<HTMLInputElement>(null)
 
+  // load 1 lần duy nhất
   useEffect(() => {
     supabase.from('plant_groups').select('*').order('sort_order').then(({ data }) => setGroups(data || []))
     supabase.from('she_units').select('*').order('sort_order').then(({ data }) => setSheUnits(data || []))
+    supabase
+      .from('plants')
+      .select('*, g1:plant_groups!group_lv1_id(name), g2:plant_groups!group_lv2_id(name)')
+      .eq('status', 'ACTIVE').order('name_vi')
+      .then(({ data }) => { setAllPlants(data || []); setLoading(false) })
   }, [])
 
-  useEffect(() => {
-    async function load() {
-      setLoading(true)
-      let q = supabase
-        .from('plants')
-        .select('*, g1:plant_groups!group_lv1_id(name), g2:plant_groups!group_lv2_id(name)')
-        .eq('status', 'ACTIVE').order('name_vi')
-      if (search) q = q.ilike('name_vi', `%${search}%`)
-      const { data } = await q
-      setPlants(data || [])
-      setCurrentIdx(0)
-      setLoading(false)
-    }
-    load()
-  }, [search])
+  // filter client-side — instant, không gọi API
+  const plants = useMemo(() => {
+    if (!search.trim()) return allPlants
+    const q = search.toLowerCase()
+    return allPlants.filter(p =>
+      p.name_vi?.toLowerCase().includes(q) ||
+      p.scientific_name?.toLowerCase().includes(q) ||
+      p.other_names?.toLowerCase().includes(q)
+    )
+  }, [allPlants, search])
 
   useEffect(() => {
     if (view !== 'catalog') return
@@ -65,11 +66,10 @@ export default function PlantsPage() {
     return () => window.removeEventListener('keydown', handler)
   }, [view, plants.length])
 
-  const current = plants[currentIdx] || null
-  const total   = plants.length
-  const lv1Groups = groups.filter(g => g.level === 1)
-
-  const goToPlant = (idx: number) => { setCurrentIdx(idx); setActiveImg('cover'); setView('catalog'); setShowSidebar(false) }
+  const current    = plants[currentIdx] || null
+  const total      = plants.length
+  const lv1Groups  = groups.filter(g => g.level === 1)
+  const goToPlant  = (idx: number) => { setCurrentIdx(idx); setActiveImg('cover'); setView('catalog'); setShowSidebar(false) }
 
   const currentImgUrl = current
     ? (activeImg === 'cover' ? current.cover_image_url : activeImg === 'flower' ? current.flower_leaf_image_url : current.application_image_url)
@@ -84,7 +84,7 @@ export default function PlantsPage() {
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-[#141a10]">
 
-      {/* ── TOPBAR ── */}
+      {/* TOPBAR */}
       <div className="flex-shrink-0 bg-[#0d1109] border-b border-[#2a2e24] px-4 py-2 flex items-center justify-between z-30">
         <div className="flex items-center gap-3">
           <Link href="/" className="w-7 h-7 bg-[#1e2618] rounded flex items-center justify-center hover:bg-[#2a3420] transition-colors">
@@ -107,7 +107,7 @@ export default function PlantsPage() {
             onChange={e => { setSearch(e.target.value); setView('toc') }}
           />
           {search && (
-            <button onClick={() => { setSearch(''); setView('toc') }}>
+            <button onClick={() => setSearch('')}>
               <X size={12} className="text-gray-500 hover:text-white" />
             </button>
           )}
@@ -117,11 +117,11 @@ export default function PlantsPage() {
             <span className="text-white font-medium">{currentIdx + 1}</span>/<span>{total}</span>
           </div>
         ) : (
-          <div className="text-sm text-gray-500">{total} loài</div>
+          <div className="text-sm text-gray-500">{plants.length} loài</div>
         )}
       </div>
 
-      {/* ── TOC VIEW ── */}
+      {/* TOC VIEW */}
       {view === 'toc' && (
         <div className="flex-1 overflow-auto flex items-start justify-center py-8 px-4">
           <div className="w-full max-w-3xl bg-[#f8f6ee] rounded-2xl p-8 border border-[#e0dba8]">
@@ -133,7 +133,7 @@ export default function PlantsPage() {
             </div>
 
             {search && (
-              <div className="flex items-center justify-between mb-4 px-1 py-2 bg-[#eef5e0] rounded-lg">
+              <div className="flex items-center justify-between mb-5 px-3 py-2 bg-[#eef5e0] rounded-lg border border-[#c0dd97]">
                 <span className="text-sm text-[#3b6d11]">
                   Tìm thấy <strong>{plants.length}</strong> kết quả cho "<em>{search}</em>"
                 </span>
@@ -143,7 +143,7 @@ export default function PlantsPage() {
               </div>
             )}
 
-            <div className="space-y-8 overflow-y-auto" style={{ maxHeight: '60vh' }}>
+            <div className="space-y-8 overflow-y-auto" style={{ maxHeight: '62vh' }}>
               {loading ? (
                 <div className="flex items-center justify-center py-12">
                   <Leaf size={24} className="text-[#6b8e5a] animate-pulse" />
@@ -171,12 +171,12 @@ export default function PlantsPage() {
                         const globalIdx = plants.findIndex(x => x.id === p.id)
                         return (
                           <button key={p.id} onClick={() => goToPlant(globalIdx)}
-                            className="w-full flex items-center justify-between py-1 text-left group hover:bg-[#eef5e0] rounded px-2 -mx-2 transition-colors">
+                            className="w-full flex items-center justify-between py-1.5 text-left group hover:bg-[#eef5e0] rounded px-2 -mx-2 transition-colors">
                             <div className="flex items-center gap-3">
-                              <span className="text-[#b4b2a0] text-xs w-5 text-right">{pi + 1}.</span>
+                              <span className="text-[#b4b2a0] text-xs w-5 text-right flex-shrink-0">{pi + 1}.</span>
                               <span className="text-sm text-[#2c3428] group-hover:text-[#2d6a30] transition-colors">{p.name_vi}</span>
                             </div>
-                            <span className="text-xs italic text-[#9a9a82] ml-4 truncate max-w-[200px]">{p.scientific_name}</span>
+                            <span className="text-xs italic text-[#9a9a82] ml-4 truncate max-w-[220px] flex-shrink-0">{p.scientific_name}</span>
                           </button>
                         )
                       })}
@@ -196,11 +196,9 @@ export default function PlantsPage() {
         </div>
       )}
 
-      {/* ── CATALOG VIEW ── */}
+      {/* CATALOG VIEW */}
       {view === 'catalog' && (
         <div className="flex-1 flex relative overflow-hidden">
-
-          {/* sidebar */}
           {showSidebar && (
             <div className="absolute left-0 top-0 bottom-0 w-72 bg-white z-40 shadow-2xl flex flex-col overflow-hidden">
               <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
@@ -215,19 +213,17 @@ export default function PlantsPage() {
               </button>
               <div className="flex-1 overflow-y-auto py-2">
                 {lv1Groups.map((g1, gi) => {
-                  const gPlants = plants.filter(p => p.group_lv1_id === g1.id)
+                  const gPlants = allPlants.filter(p => p.group_lv1_id === g1.id)
                   if (!gPlants.length) return null
                   return (
                     <div key={g1.id} className="mb-4">
                       <div className="flex items-center gap-2 px-4 py-2">
-                        <span className="w-6 h-6 bg-forest-600 text-white text-xs font-medium rounded flex items-center justify-center flex-shrink-0">
-                          {String(gi + 1).padStart(2, '0')}
-                        </span>
+                        <span className="w-6 h-6 bg-forest-600 text-white text-xs font-medium rounded flex items-center justify-center flex-shrink-0">{String(gi + 1).padStart(2, '0')}</span>
                         <span className="text-sm font-medium text-gray-800">{g1.name}</span>
                         <span className="ml-auto text-xs text-gray-400">{gPlants.length}</span>
                       </div>
                       {gPlants.map((p, pi) => {
-                        const globalIdx = plants.findIndex(x => x.id === p.id)
+                        const globalIdx = allPlants.findIndex(x => x.id === p.id)
                         return (
                           <button key={p.id} onClick={() => goToPlant(globalIdx)}
                             className={`w-full flex items-center justify-between px-4 py-1.5 text-left transition-colors hover:bg-forest-50 ${globalIdx === currentIdx ? 'bg-forest-50 text-forest-700' : ''}`}>
@@ -244,30 +240,24 @@ export default function PlantsPage() {
           )}
 
           {!current ? (
-            <div className="flex-1 flex items-center justify-center text-gray-600">
+            <div className="flex-1 flex items-center justify-center text-gray-500">
               <p className="text-sm">Không tìm thấy cây nào</p>
             </div>
           ) : (
             <>
-              {/* ảnh trái */}
               <div className="w-[52%] flex-shrink-0 relative overflow-hidden">
-                {currentImgUrl ? (
-                  <img src={currentImgUrl} alt={current.name_vi} className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full bg-[#1a2e10] flex items-center justify-center">
-                    <Leaf size={80} className="text-green-900 opacity-20" />
-                  </div>
-                )}
+                {currentImgUrl
+                  ? <img src={currentImgUrl} alt={current.name_vi} className="w-full h-full object-cover" />
+                  : <div className="w-full h-full bg-[#1a2e10] flex items-center justify-center"><Leaf size={80} className="text-green-900 opacity-20" /></div>
+                }
                 <div className="absolute inset-0" style={{ background: 'linear-gradient(to top,rgba(5,12,3,.85) 0%,transparent 55%)' }} />
                 <div className="absolute bottom-0 left-0 right-0 p-5">
-                  <div className="text-xs font-medium tracking-widest text-green-400 uppercase mb-1">
-                    {current.g1?.name}{(current as any).g2?.name ? ` · ${(current as any).g2.name}` : ''}
-                  </div>
+                  <div className="text-xs font-medium tracking-widest text-green-400 uppercase mb-1">{current.g1?.name}{(current as any).g2?.name ? ` · ${(current as any).g2.name}` : ''}</div>
                   <div className="text-2xl font-semibold text-white leading-tight" style={{ fontFamily: 'Georgia, serif' }}>{current.name_vi}</div>
                   <div className="text-sm italic text-white/50 mt-1">{current.scientific_name}</div>
                 </div>
                 <div className="absolute top-4 right-4 flex flex-col gap-2">
-                  {(['cover','flower','app'] as const).map((key) => {
+                  {(['cover','flower','app'] as const).map(key => {
                     const url = key === 'cover' ? current.cover_image_url : key === 'flower' ? current.flower_leaf_image_url : current.application_image_url
                     const label = key === 'cover' ? 'Tổng thể' : key === 'flower' ? 'Hoa / lá' : 'Ứng dụng'
                     return (
@@ -295,7 +285,6 @@ export default function PlantsPage() {
                 </button>
               </div>
 
-              {/* info phải */}
               <div className="flex-1 bg-[#f8f6f0] overflow-y-auto">
                 <div className="p-6">
                   {current.plant_code && <span className="inline-block font-mono text-xs text-gray-400 bg-gray-200 px-2 py-0.5 rounded mb-4">{current.plant_code}</span>}
@@ -327,7 +316,6 @@ export default function PlantsPage() {
               </div>
             </>
           )}
-
           <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#1e2618]">
             <div className="h-full bg-green-600 transition-all duration-300" style={{ width: total ? `${((currentIdx + 1) / total) * 100}%` : '0%' }} />
           </div>
