@@ -2,17 +2,25 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import { Plus, Search, Filter, Edit2, Leaf, BarChart2, Download } from 'lucide-react'
+import { Plus, Search, Edit2, Leaf, BarChart2, Download, Trash2, FileText, FileSpreadsheet, X, AlertTriangle } from 'lucide-react'
 
 export default function AdminPlantsPage() {
-  const [plants, setPlants] = useState<any[]>([])
-  const [groups, setGroups] = useState<any[]>([])
-  const [sheUnits, setSheUnits] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
+  const [plants, setPlants]       = useState<any[]>([])
+  const [groups, setGroups]       = useState<any[]>([])
+  const [sheUnits, setSheUnits]   = useState<any[]>([])
+  const [loading, setLoading]     = useState(true)
+  const [search, setSearch]       = useState('')
   const [selectedGroup, setSelectedGroup] = useState('')
-  const [selectedUnit, setSelectedUnit] = useState('')
-  const [selectedMang, setSelectedMang] = useState('')
+  const [selectedUnit, setSelectedUnit]   = useState('')
+  const [selectedMang, setSelectedMang]   = useState('')
+
+  // delete confirm
+  const [deleteTarget, setDeleteTarget] = useState<any | null>(null)
+  const [deleting, setDeleting]         = useState(false)
+
+  // export dropdown
+  const [showExport, setShowExport] = useState(false)
+  const [exporting, setExporting]   = useState<'excel'|'csv'|null>(null)
 
   const MANGS = ['Giải trí', 'Nghỉ dưỡng - Tự vận hành', 'Nghỉ dưỡng - Thuê quản lý', 'Sân golf']
 
@@ -25,7 +33,7 @@ export default function AdminPlantsPage() {
     async function load() {
       setLoading(true)
       let q = supabase.from('plants').select(`*, g1:plant_groups!group_lv1_id(name)`).order('plant_code')
-      if (search) q = q.ilike('name_vi', `%${search}%`)
+      if (search)        q = q.ilike('name_vi', `%${search}%`)
       if (selectedGroup) q = q.eq('group_lv1_id', selectedGroup)
       const { data } = await q
       let result = data || []
@@ -42,20 +50,166 @@ export default function AdminPlantsPage() {
 
   const filteredUnits = selectedMang ? sheUnits.filter(u => u.mang === selectedMang) : sheUnits
 
+  // ── XOÁ CÂY ────────────────────────────────────────────────────────────────
+  async function confirmDelete() {
+    if (!deleteTarget) return
+    setDeleting(true)
+    const { error } = await supabase.from('plants').delete().eq('id', deleteTarget.id)
+    if (!error) {
+      setPlants(prev => prev.filter(p => p.id !== deleteTarget.id))
+    }
+    setDeleting(false)
+    setDeleteTarget(null)
+  }
+
+  // ── XUẤT FILE ──────────────────────────────────────────────────────────────
+  function buildRows(list: any[]) {
+    return list.map(p => {
+      const unitCodes = (p.she_unit_ids || []).map((id: string) => sheUnits.find(u => u.id === id)?.code).filter(Boolean).join(', ')
+      return {
+        'Mã cây':         p.plant_code || '',
+        'Tên tiếng Việt': p.name_vi    || '',
+        'Tên khoa học':   p.scientific_name || '',
+        'Tên tiếng Anh':  p.name_en    || '',
+        'Tên khác':       p.other_names || '',
+        'Nhóm cây':       p.g1?.name   || '',
+        'Đơn vị SHE':     unitCodes,
+        'Trạng thái':     p.status === 'ACTIVE' ? 'Hoạt động' : p.status === 'INACTIVE' ? 'Tạm ngừng' : 'Nháp',
+        'Bản địa':        p.is_native ? 'Có' : 'Không',
+        'Nguy cấp':       p.is_endangered ? 'Có' : 'Không',
+        'Chiều cao (m)':  p.height_min_m && p.height_max_m ? `${p.height_min_m}–${p.height_max_m}` : p.height_min_m || '',
+        'Màu hoa':        p.flower_color_text || '',
+        'Mùa hoa':        p.blooming_period_text || '',
+        'Ánh sáng':       p.light_requirement || '',
+        'Độ ẩm':          p.water_requirement || '',
+        'Đất trồng':      p.soil_requirement || '',
+        'Nhiệt độ':       p.temperature_range || '',
+      }
+    })
+  }
+
+  async function exportCSV(all: boolean) {
+    setExporting('csv'); setShowExport(false)
+    let list = plants
+    if (all) {
+      const { data } = await supabase.from('plants').select(`*, g1:plant_groups!group_lv1_id(name)`).order('plant_code')
+      list = data || []
+    }
+    const rows = buildRows(list)
+    if (!rows.length) { setExporting(null); return }
+    const headers = Object.keys(rows[0])
+    const csv = [
+      headers.join(','),
+      ...rows.map(r => headers.map(h => `"${String((r as any)[h]).replace(/"/g, '""')}"`).join(','))
+    ].join('\n')
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a'); a.href = url
+    a.download = all ? 'danh-sach-cay-tat-ca.csv' : 'danh-sach-cay-loc.csv'
+    a.click(); URL.revokeObjectURL(url)
+    setExporting(null)
+  }
+
+  async function exportExcel(all: boolean) {
+    setExporting('excel'); setShowExport(false)
+    let list = plants
+    if (all) {
+      const { data } = await supabase.from('plants').select(`*, g1:plant_groups!group_lv1_id(name)`).order('plant_code')
+      list = data || []
+    }
+    const rows = buildRows(list)
+    if (!rows.length) { setExporting(null); return }
+
+    // dùng SheetJS qua CDN (đã có trong dependencies Next.js)
+    const XLSX = await import('xlsx')
+    const ws   = XLSX.utils.json_to_sheet(rows)
+    const wb   = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Danh sách cây')
+    // tự động điều chỉnh độ rộng cột
+    const colWidths = Object.keys(rows[0]).map(k => ({ wch: Math.max(k.length, 14) }))
+    ws['!cols'] = colWidths
+    XLSX.writeFile(wb, all ? 'danh-sach-cay-tat-ca.xlsx' : 'danh-sach-cay-loc.xlsx')
+    setExporting(null)
+  }
+
   return (
     <div>
+      {/* ── CONFIRM XOÁ ── */}
+      {deleteTarget && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+            <div className="flex items-start gap-3 mb-4">
+              <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+                <AlertTriangle size={20} className="text-red-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-800 text-base">Xác nhận xoá cây</h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  Bạn có chắc muốn xoá <span className="font-medium text-gray-800">"{deleteTarget.name_vi}"</span>?
+                  Hành động này không thể hoàn tác.
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setDeleteTarget(null)} disabled={deleting}
+                className="btn-secondary">Huỷ</button>
+              <button onClick={confirmDelete} disabled={deleting}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-1.5 disabled:opacity-50">
+                {deleting ? 'Đang xoá...' : <><Trash2 size={14} />Xoá cây</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── HEADER ── */}
       <div className="page-header">
         <div>
           <h1 className="text-2xl font-display font-semibold text-gray-800">Quản lý Cây</h1>
           <p className="text-gray-500 text-sm mt-1">{plants.length} loài cây · Khối SHE</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center relative">
           <Link href="/admin/plants/statistics" className="btn-secondary"><BarChart2 size={15} />Thống kê</Link>
+
+          {/* Nút xuất file */}
+          <div className="relative">
+            <button
+              onClick={() => setShowExport(!showExport)}
+              className="btn-secondary flex items-center gap-1.5"
+              disabled={!!exporting}
+            >
+              <Download size={15} />
+              {exporting ? 'Đang xuất...' : 'Xuất file'}
+            </button>
+            {showExport && (
+              <div className="absolute right-0 top-full mt-1 w-56 bg-white border border-gray-100 rounded-xl shadow-lg z-20 overflow-hidden">
+                <div className="px-3 py-2 border-b border-gray-100">
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Xuất theo bộ lọc hiện tại ({plants.length} cây)</p>
+                </div>
+                <button onClick={() => exportExcel(false)} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                  <FileSpreadsheet size={15} className="text-green-600" />Excel (.xlsx)
+                </button>
+                <button onClick={() => exportCSV(false)} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                  <FileText size={15} className="text-blue-600" />CSV (.csv)
+                </button>
+                <div className="px-3 py-2 border-t border-gray-100">
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Xuất toàn bộ (340 cây)</p>
+                </div>
+                <button onClick={() => exportExcel(true)} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                  <FileSpreadsheet size={15} className="text-green-600" />Excel — tất cả
+                </button>
+                <button onClick={() => exportCSV(true)} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                  <FileText size={15} className="text-blue-600" />CSV — tất cả
+                </button>
+              </div>
+            )}
+          </div>
+
           <Link href="/admin/plants/new" className="btn-primary"><Plus size={16} />Thêm cây mới</Link>
         </div>
       </div>
 
-      {/* Filter bar */}
+      {/* ── FILTER BAR ── */}
       <div className="card p-4 mb-5 flex gap-3 flex-wrap items-center">
         <div className="flex-1 min-w-48 relative">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -75,7 +229,7 @@ export default function AdminPlantsPage() {
         </select>
       </div>
 
-      {/* Table */}
+      {/* ── TABLE ── */}
       <div className="card overflow-hidden">
         <table className="w-full text-sm">
           <thead>
@@ -86,7 +240,7 @@ export default function AdminPlantsPage() {
               <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden lg:table-cell">Nhóm</th>
               <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden lg:table-cell">Đơn vị SHE</th>
               <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Trạng thái</th>
-              <th className="px-4 py-3"></th>
+              <th className="px-4 py-3 w-20"></th>
             </tr>
           </thead>
           <tbody>
@@ -122,9 +276,19 @@ export default function AdminPlantsPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <Link href={`/admin/plants/${p.id}`} className="p-1.5 rounded-lg hover:bg-forest-50 text-gray-400 hover:text-forest-600 transition-colors inline-flex">
-                      <Edit2 size={14} />
-                    </Link>
+                    <div className="flex items-center gap-0.5">
+                      <Link href={`/admin/plants/${p.id}`}
+                        className="p-1.5 rounded-lg hover:bg-forest-50 text-gray-400 hover:text-forest-600 transition-colors inline-flex"
+                        title="Chỉnh sửa">
+                        <Edit2 size={14} />
+                      </Link>
+                      <button
+                        onClick={() => setDeleteTarget(p)}
+                        className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600 transition-colors inline-flex"
+                        title="Xoá cây">
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               )
@@ -132,6 +296,9 @@ export default function AdminPlantsPage() {
           </tbody>
         </table>
       </div>
+
+      {/* đóng dropdown xuất file khi click ngoài */}
+      {showExport && <div className="fixed inset-0 z-10" onClick={() => setShowExport(false)} />}
     </div>
   )
 }
