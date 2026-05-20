@@ -23,7 +23,7 @@ export default function PlantForm({ plantId }: PlantFormProps) {
   const [sheUnits, setSheUnits] = useState<any[]>([])
 
   const [form, setForm] = useState({
-    plant_code: '', name_vi: '', name_en: '', scientific_name: '', other_names: '', species: '',
+    plant_code: '', name_vi: '', name_en: '', scientific_name: '', other_names: '',
     group_lv1_id: '', group_lv2_id: '', she_unit_ids: [] as string[],
     cover_image_url: '', flower_leaf_image_url: '', application_image_url: '',
     climate_ids: [] as string[], special_function_ids: [] as string[],
@@ -55,7 +55,6 @@ export default function PlantForm({ plantId }: PlantFormProps) {
           plant_code: data.plant_code || '', name_vi: data.name_vi || '',
           name_en: data.name_en || '', scientific_name: data.scientific_name || '',
           other_names: (data.other_names || []).join(', '),
-          species: data.species || '',
           group_lv1_id: data.group_lv1_id || '', group_lv2_id: data.group_lv2_id || '',
           she_unit_ids: data.she_unit_ids || [],
           cover_image_url: data.cover_image_url || '',
@@ -119,7 +118,7 @@ export default function PlantForm({ plantId }: PlantFormProps) {
   const imgFields = [
     { key: 'cover_image_url', label: 'Hình ảnh chính', note: 'Ảnh tổng thể rõ cây — JPG/PNG', required: true },
     { key: 'flower_leaf_image_url', label: 'Hình ảnh bộ phận cây', note: 'Lá, hoa, thân, quả... ảnh chi tiết đặc trưng', required: false },
-    { key: 'application_image_url', label: 'Hình ảnh ứng dụng', note: 'Cây được ứng dụng trong thực tế — có thể mô tả nhiều ứng dụng khác nhau', required: false },
+    { key: 'application_image_url', label: 'Hình ảnh ứng dụng', note: 'Cây được ứng dụng trong thực tế', required: false },
   ]
 
   const expertSections = [
@@ -130,16 +129,16 @@ export default function PlantForm({ plantId }: PlantFormProps) {
       { key: 'temperature_range', label: 'Nhiệt độ & khí hậu', ph: 'Ngưỡng nhiệt độ, chịu mưa lạnh không...' },
     ]},
     { key: 'C', label: 'C — Kỹ thuật trồng, chăm sóc', fields: [
-      { key: 'planting_technique', label: 'Kỹ thuật trồng, chăm sóc', ph: 'Trồng & setup: chuẩn bị hố, khoảng cách trồng, thời điểm tốt nhất...\nTưới nước & bón phân: lịch tưới, loại phân, liều lượng, tần suất...\nCắt tỉa & tạo hình: thời điểm, kỹ thuật cắt tỉa...\nPhòng trừ sâu bệnh: các loại thường gặp, cách nhận biết & xử lý...' },
+      { key: 'planting_technique', label: 'Kỹ thuật trồng, chăm sóc', ph: 'Trồng & setup, tưới nước & bón phân, cắt tỉa & tạo hình...' },
     ]},
     { key: 'D', label: 'D — Kỹ thuật nhân giống', fields: [
-      { key: 'propagation', label: 'Kỹ thuật nhân giống', ph: 'Gieo hạt, giâm cành, ghép, chiết... phương pháp hiệu quả nhất, tỷ lệ thành công...' },
+      { key: 'propagation', label: 'Kỹ thuật nhân giống', ph: 'Gieo hạt, giâm cành, ghép, chiết...' },
     ]},
     { key: 'E', label: 'E — Ứng dụng cảnh quan', fields: [
-      { key: 'landscape_application', label: 'Ứng dụng cảnh quan', ph: 'Trồng viền, trồng khối, điểm nhấn, chậu, ban công, quảng trường...\nSắp đặt & tiểu cảnh: cách phối cây, tạo tiểu cảnh, trưng bày chuyên nghiệp...' },
+      { key: 'landscape_application', label: 'Ứng dụng cảnh quan', ph: 'Trồng viền, trồng khối, điểm nhấn, chậu, ban công...' },
     ]},
     { key: 'F', label: 'F — Kinh nghiệm thực tế Khối SHE', fields: [
-      { key: 'she_experience', label: 'Kinh nghiệm & Rủi ro thực tế', ph: 'Kinh nghiệm thực địa: phù hợp điều kiện từng đơn vị không, chịu mưa lạnh Bà Nà không...\nRủi ro cần lưu ý: dễ úng, dễ rụng lá, dễ sâu bệnh, khó vận chuyển...' },
+      { key: 'she_experience', label: 'Kinh nghiệm & Rủi ro thực tế', ph: 'Kinh nghiệm thực địa, rủi ro cần lưu ý...' },
     ]},
   ]
 
@@ -159,7 +158,6 @@ export default function PlantForm({ plantId }: PlantFormProps) {
         </div>
       </div>
 
-      {/* Tabs */}
       <div className="flex gap-1 mb-5 bg-gray-100 p-1 rounded-xl">
         {tabs.map((tab, i) => (
           <button key={i} onClick={() => setActiveSection(i)}
@@ -169,7 +167,6 @@ export default function PlantForm({ plantId }: PlantFormProps) {
         ))}
       </div>
 
-      {/* PHẦN 1 */}
       {activeSection === 0 && (
         <div className="space-y-4">
           <div className="card p-6">
@@ -189,8 +186,6 @@ export default function PlantForm({ plantId }: PlantFormProps) {
                 <input className="input italic" placeholder="VD: Rhododendron simsii" value={form.scientific_name} onChange={e => upd('scientific_name', e.target.value)} /></div>
               <div className="col-span-2"><label className="block text-sm font-medium text-gray-600 mb-1">Tên gọi khác</label>
                 <input className="input" placeholder="Nhập các tên khác, cách nhau bằng dấu phẩy" value={form.other_names} onChange={e => upd('other_names', e.target.value)} /></div>
-              <div className="col-span-2"><label className="block text-sm font-medium text-gray-600 mb-1">Loài</label>
-                <input className="input" placeholder="VD: Thực vật hạt kín, Hòa thảo..." value={(form as any).species} onChange={e => upd('species', e.target.value)} /></div>
             </div>
           </div>
           <div className="card p-6">
@@ -236,7 +231,6 @@ export default function PlantForm({ plantId }: PlantFormProps) {
                 </div>
                 <ChevronDown size={16} className={`text-gray-400 flex-shrink-0 transition-transform ${sheOpen ? 'rotate-180' : ''}`} />
               </button>
-
               {sheOpen && (
                 <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-xl max-h-72 overflow-y-auto">
                   {Object.entries(sheByMang).map(([mang, units]) => (
@@ -265,7 +259,6 @@ export default function PlantForm({ plantId }: PlantFormProps) {
         </div>
       )}
 
-      {/* PHẦN 2 */}
       {activeSection === 1 && (
         <div className="space-y-4">
           {imgFields.map(({ key, label, note, required }) => (
@@ -292,7 +285,6 @@ export default function PlantForm({ plantId }: PlantFormProps) {
         </div>
       )}
 
-      {/* PHẦN 3 */}
       {activeSection === 2 && (
         <div className="space-y-4">
           <div className="card p-6">
@@ -344,7 +336,6 @@ export default function PlantForm({ plantId }: PlantFormProps) {
         </div>
       )}
 
-      {/* PHẦN 4 */}
       {activeSection === 3 && (
         <div className="space-y-3">
           {expertSections.map(section => (
