@@ -1,12 +1,8 @@
 'use client'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import {
-  Search, Leaf, TreePine, ArrowLeft, ChevronRight, ChevronDown,
-  Sun, Droplets, Thermometer, Sprout, Scissors, MapPin,
-  AlertTriangle, BookOpen, X, ExternalLink
-} from 'lucide-react'
+import { Search, Leaf, TreePine, List, X, ChevronLeft, ChevronRight, ArrowRight } from 'lucide-react'
 
 interface Group { id: string; name: string; level: number; parent_id: string | null; sort_order: number }
 interface Unit  { id: string; code: string; name: string; sort_order: number }
@@ -21,498 +17,326 @@ interface Plant {
   propagation?: string; landscape_application?: string; she_experience?: string
   she_risks?: string; status?: string; g1?: { name: string }; g2?: { name: string }
   climate_ids?: string[]; special_function_ids?: string[]
-}
-
-function InfoRow({ icon: Icon, label, value }: { icon: any; label: string; value?: string }) {
-  if (!value) return null
-  return (
-    <div className="flex gap-2 py-2.5 border-b border-gray-100 last:border-0">
-      <div className="flex-shrink-0 w-6 h-6 rounded bg-forest-50 flex items-center justify-center mt-0.5">
-        <Icon size={12} className="text-forest-600" />
-      </div>
-      <div className="flex-1">
-        <div className="text-xs text-gray-400 mb-0.5">{label}</div>
-        <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">{value}</div>
-      </div>
-    </div>
-  )
+  description?: string
 }
 
 export default function PlantsPage() {
-  const [allPlants, setAllPlants] = useState<any[]>([])
-  const [plants, setPlants]       = useState<Plant[]>([])
-  const [groups, setGroups]       = useState<Group[]>([])
-  const [sheUnits, setSheUnits]   = useState<Unit[]>([])
-  const [loading, setLoading]     = useState(true)
+  const [plants, setPlants]     = useState<Plant[]>([])
+  const [groups, setGroups]     = useState<Group[]>([])
+  const [sheUnits, setSheUnits] = useState<Unit[]>([])
+  const [loading, setLoading]   = useState(true)
+  const [search, setSearch]     = useState('')
+  const [currentIdx, setCurrentIdx] = useState(0)
+  const [activeImg, setActiveImg]   = useState<'cover'|'flower'|'app'>('cover')
+  const [showToc, setShowToc]       = useState(false)
+  const searchRef = useRef<HTMLInputElement>(null)
 
-  // sidebar
-  const [openGroups, setOpenGroups]   = useState<Record<string, boolean>>({})
-  const [selectedLv1, setSelectedLv1] = useState('')
-  const [selectedLv2, setSelectedLv2] = useState('')
-
-  // filter
-  const [search, setSearch]               = useState('')
-  const [selectedUnit, setSelectedUnit]   = useState('')
-  const [filterSpecial, setFilterSpecial] = useState<'ban-dia'|'nguy-cap'|''>('')
-
-  // detail
-  const [selectedPlant, setSelectedPlant]       = useState<Plant | null>(null)
-  const [detailLoading, setDetailLoading]       = useState(false)
-  const [activeImg, setActiveImg]               = useState<'cover'|'flower'|'app'>('cover')
-  const [climates, setClimates]                 = useState<any[]>([])
-  const [functions, setFunctions]               = useState<any[]>([])
-  const [expandedSections, setExpandedSections] = useState<Record<string,boolean>>({ grow: true, tech: false, she: false })
-
-  // load groups & units
+  // load
   useEffect(() => {
     supabase.from('plant_groups').select('*').order('sort_order').then(({ data }) => setGroups(data || []))
     supabase.from('she_units').select('*').order('sort_order').then(({ data }) => setSheUnits(data || []))
   }, [])
 
-  // load plants
   useEffect(() => {
     async function load() {
       setLoading(true)
-      const { data: all } = await supabase
-        .from('plants').select('id, name_vi, group_lv1_id, group_lv2_id, she_unit_ids, is_native, is_endangered')
-        .eq('status', 'ACTIVE')
-      setAllPlants((all || []) as any[])
-
       let q = supabase
         .from('plants')
         .select('*, g1:plant_groups!group_lv1_id(name), g2:plant_groups!group_lv2_id(name)')
-        .eq('status', 'ACTIVE').order('name_vi')
-      if (search)      q = q.ilike('name_vi', `%${search}%`)
-      if (selectedLv1) q = q.eq('group_lv1_id', selectedLv1)
-      if (selectedLv2) q = q.eq('group_lv2_id', selectedLv2)
-
+        .eq('status', 'ACTIVE')
+        .order('name_vi')
+      if (search) q = q.ilike('name_vi', `%${search}%`)
       const { data } = await q
-      let result: Plant[] = data || []
-      if (selectedUnit)              result = result.filter(p => (p.she_unit_ids||[]).includes(selectedUnit))
-      if (filterSpecial==='ban-dia') result = result.filter(p => p.is_native)
-      if (filterSpecial==='nguy-cap')result = result.filter(p => p.is_endangered)
-      setPlants(result)
+      setPlants(data || [])
+      setCurrentIdx(0)
       setLoading(false)
     }
     load()
-  }, [search, selectedLv1, selectedLv2, selectedUnit, filterSpecial])
+  }, [search])
 
-  // load detail
-  const loadDetail = useCallback(async (p: Plant) => {
-    setSelectedPlant(p)
-    setDetailLoading(true)
-    setActiveImg('cover')
-    setExpandedSections({ grow: true, tech: false, she: false })
-    const { data: full } = await supabase.from('plants').select('*').eq('id', p.id).single()
-    if (full) {
-      const [clim, fn] = await Promise.all([
-        full.climate_ids?.length ? supabase.from('climates').select('*').in('id', full.climate_ids) : Promise.resolve({ data: [] }),
-        full.special_function_ids?.length ? supabase.from('special_functions').select('*').in('id', full.special_function_ids) : Promise.resolve({ data: [] }),
-      ])
-      setClimates(clim.data || [])
-      setFunctions(fn.data || [])
-      setSelectedPlant({ ...p, ...full })
+  // keyboard nav
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.target === searchRef.current) return
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next()
+      if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   prev()
     }
-    setDetailLoading(false)
-  }, [])
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [plants, currentIdx])
 
-  // helpers
-  const lv1Groups  = groups.filter(g => g.level === 1)
-  const lv2Of      = (id: string) => groups.filter(g => g.level === 2 && g.parent_id === id)
-  const countLv1   = (id: string) => allPlants.filter(p => p.group_lv1_id === id).length
-  const countLv2   = (id: string) => allPlants.filter(p => p.group_lv2_id === id).length
+  const current = plants[currentIdx] || null
+  const total   = plants.length
 
-  const toggleOpen = (id: string) => setOpenGroups(prev => ({ ...prev, [id]: !prev[id] }))
+  const next = () => { setCurrentIdx(i => Math.min(i + 1, total - 1)); setActiveImg('cover') }
+  const prev = () => { setCurrentIdx(i => Math.max(i - 1, 0)); setActiveImg('cover') }
+  const goTo = (idx: number) => { setCurrentIdx(idx); setActiveImg('cover'); setShowToc(false) }
 
-  const pickLv1 = (id: string) => {
-    setSelectedLv1(id); setSelectedLv2(''); setSelectedPlant(null)
-  }
-  const pickLv2 = (lv1Id: string, lv2Id: string) => {
-    setSelectedLv1(lv1Id); setSelectedLv2(lv2Id); setSelectedPlant(null)
-    setOpenGroups(prev => ({ ...prev, [lv1Id]: true }))
-  }
-  const pickAll = () => { setSelectedLv1(''); setSelectedLv2(''); setSelectedPlant(null) }
+  const lv1Groups = groups.filter(g => g.level === 1)
 
-  const toggleSection = (k: string) => setExpandedSections(e => ({ ...e, [k]: !e[k] }))
+  // group plants by lv1
+  const plantsByGroup = (g1Id: string) => plants.filter(p => p.group_lv1_id === g1Id)
 
-  const unitObjects = (selectedPlant?.she_unit_ids || [])
-    .map(id => sheUnits.find(u => u.id === id)).filter(Boolean) as Unit[]
-
-  const activeGroupName = selectedLv2
-    ? groups.find(g => g.id === selectedLv2)?.name
-    : selectedLv1 ? groups.find(g => g.id === selectedLv1)?.name : 'Tất cả cây'
-
-  const heightText = selectedPlant
-    ? (selectedPlant.height_min_m && selectedPlant.height_max_m
-        ? `${selectedPlant.height_min_m}–${selectedPlant.height_max_m}m`
-        : selectedPlant.height_min_m ? `${selectedPlant.height_min_m}m` : '')
-    : ''
-
-  const currentImgUrl = selectedPlant
-    ? (activeImg === 'cover' ? selectedPlant.cover_image_url
-      : activeImg === 'flower' ? selectedPlant.flower_leaf_image_url
-      : selectedPlant.application_image_url)
+  const currentImgUrl = current
+    ? (activeImg === 'cover'  ? current.cover_image_url
+     : activeImg === 'flower' ? current.flower_leaf_image_url
+     : current.application_image_url)
     : undefined
 
-  return (
-    <div className="h-screen flex flex-col overflow-hidden" style={{ background: '#f5f3ee' }}>
+  const heightText = current
+    ? (current.height_min_m && current.height_max_m
+        ? `${current.height_min_m}–${current.height_max_m}m`
+        : current.height_min_m ? `${current.height_min_m}m` : '')
+    : ''
 
-      {/* HEADER */}
-      <div style={{ background: 'linear-gradient(135deg, #0a280a 0%, #1e6e1e 100%)' }} className="px-6 py-5 flex-shrink-0 z-50">
-        <div className="max-w-screen-xl mx-auto">
-          <Link href="/" className="inline-flex items-center gap-1.5 text-green-300 hover:text-white text-xs mb-4 transition-colors">
-            <ArrowLeft size={13} />Trang chủ
+  const unitNames = (current?.she_unit_ids || [])
+    .map(id => sheUnits.find(u => u.id === id)?.name).filter(Boolean)
+
+  return (
+    <div className="h-screen flex flex-col overflow-hidden bg-[#141a10]">
+
+      {/* TOPBAR */}
+      <div className="flex-shrink-0 bg-[#0d1109] border-b border-[#2a2e24] px-4 py-2 flex items-center justify-between z-30">
+        <div className="flex items-center gap-3">
+          <Link href="/" className="w-7 h-7 bg-[#1e2618] rounded flex items-center justify-center hover:bg-[#2a3420] transition-colors">
+            <TreePine size={14} className="text-green-400" />
           </Link>
-          <div className="flex flex-col md:flex-row md:items-end gap-4">
-            <div className="flex-1">
-              <div className="flex items-center gap-2.5 mb-1">
-                <TreePine size={22} className="text-green-300" />
-                <h1 className="font-display text-2xl text-white font-semibold">Thư viện Cây cảnh quan</h1>
-              </div>
-              <p className="text-green-300 text-xs">{allPlants.length} loài cây · Khối Giải trí & Nghỉ dưỡng Sun Group (SHE)</p>
-            </div>
-            <div className="flex gap-2 flex-wrap">
-              <div className="relative">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
-                  className="pl-9 pr-4 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-400 bg-white/95 w-56"
-                  placeholder="Tìm tên cây..."
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                />
-              </div>
-              <select
-                className="bg-white/95 rounded-lg px-3 py-2 text-sm focus:outline-none border-0 text-gray-700"
-                value={selectedUnit}
-                onChange={e => setSelectedUnit(e.target.value)}
-              >
-                <option value="">Tất cả đơn vị</option>
-                {sheUnits.map(u => <option key={u.id} value={u.id}>{u.code} — {u.name}</option>)}
-              </select>
-            </div>
-          </div>
+          <button
+            onClick={() => setShowToc(!showToc)}
+            className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-white transition-colors"
+          >
+            <List size={15} />
+            <span>Mục Lục</span>
+          </button>
+        </div>
+        <div className="flex items-center gap-2 bg-[#1e2618] rounded-lg px-3 py-1.5 border border-[#2a3420]">
+          <Search size={13} className="text-gray-500" />
+          <input
+            ref={searchRef}
+            className="bg-transparent text-sm text-gray-300 placeholder-gray-600 outline-none w-48"
+            placeholder="Tìm cây..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+        </div>
+        <div className="flex items-center gap-1.5 text-sm text-gray-500">
+          <span className="text-white font-medium">{currentIdx + 1}</span>
+          <span>/</span>
+          <span>{total}</span>
         </div>
       </div>
 
-      {/* 3-COLUMN BODY */}
-      <div className="flex-1 flex overflow-hidden" style={{ flex: 1, minHeight: 0 }}>
+      {/* MAIN */}
+      <div className="flex-1 flex overflow-hidden relative">
 
-        {/* COL 1: SIDEBAR */}
-        <aside className="w-56 flex-shrink-0 bg-white border-r border-gray-200 overflow-y-auto">
-          <div className="py-2">
-            {/* Tất cả */}
-            <button
-              onClick={pickAll}
-              className={`w-full flex items-center justify-between px-4 py-2.5 text-sm transition-colors border-l-2 ${
-                !selectedLv1 ? 'bg-forest-50 text-forest-700 border-forest-600 font-medium' : 'text-gray-600 border-transparent hover:bg-gray-50'
-              }`}
-            >
-              <span>Tất cả</span>
-              <span className={`text-xs px-1.5 py-0.5 rounded-full ${!selectedLv1 ? 'bg-forest-600 text-white' : 'bg-gray-100 text-gray-500'}`}>
-                {allPlants.length}
-              </span>
-            </button>
-
-            <div className="border-t border-gray-100 mt-1 pt-1">
-              {lv1Groups.map(g1 => {
-                const children = lv2Of(g1.id)
-                const isOpen   = !!openGroups[g1.id]
-                const isActiveLv1 = selectedLv1 === g1.id && !selectedLv2
-
+        {/* TOC SIDEBAR */}
+        {showToc && (
+          <div className="absolute left-0 top-0 bottom-0 w-72 bg-white z-40 shadow-2xl flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+              <span className="font-serif text-lg font-semibold text-gray-800">Mục Lục</span>
+              <button onClick={() => setShowToc(false)} className="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center">
+                <X size={12} className="text-gray-500" />
+              </button>
+            </div>
+            <div className="px-4 py-2 border-b border-gray-100">
+              <Link href="/" className="flex items-center gap-1.5 text-xs text-forest-600">
+                <TreePine size={12} />Trang đầu / Mục lục
+              </Link>
+            </div>
+            <div className="flex-1 overflow-y-auto py-2">
+              {lv1Groups.map((g1, gi) => {
+                const gPlants = plantsByGroup(g1.id)
+                if (!gPlants.length) return null
                 return (
-                  <div key={g1.id}>
-                    {/* Lv1 row — tên click lọc, mũi tên click mở/đóng */}
-                    <div className={`flex items-center border-l-2 transition-colors ${isActiveLv1 ? 'bg-forest-50 border-forest-600' : 'border-transparent'}`}>
-                      <button
-                        onClick={() => pickLv1(g1.id)}
-                        className={`flex-1 flex items-center justify-between pl-4 pr-1 py-2.5 text-sm text-left transition-colors ${
-                          isActiveLv1 ? 'text-forest-700 font-medium' : 'text-gray-700 hover:text-forest-700'
-                        }`}
-                      >
-                        <span className="truncate">{g1.name}</span>
-                        <span className="text-xs text-gray-400 ml-1 flex-shrink-0">{countLv1(g1.id)}</span>
-                      </button>
-                      {children.length > 0 && (
-                        <button
-                          onClick={() => toggleOpen(g1.id)}
-                          className="w-8 h-full flex items-center justify-center text-gray-400 hover:text-forest-600 hover:bg-forest-50 transition-colors py-2.5"
-                          aria-label={isOpen ? 'Thu gọn' : 'Mở rộng'}
-                        >
-                          <ChevronDown size={13} className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
-                        </button>
-                      )}
+                  <div key={g1.id} className="mb-4">
+                    <div className="flex items-center gap-2 px-4 py-2">
+                      <span className="w-6 h-6 bg-forest-600 text-white text-xs font-medium rounded flex items-center justify-center flex-shrink-0">
+                        {String(gi + 1).padStart(2, '0')}
+                      </span>
+                      <span className="text-sm font-medium text-gray-800">{g1.name}</span>
+                      <span className="ml-auto text-xs text-gray-400">{gPlants.length}</span>
                     </div>
-
-                    {/* Lv2 children — chỉ hiện khi mở */}
-                    <div
-                      className="overflow-hidden transition-all duration-200"
-                      style={{ maxHeight: isOpen ? children.length * 36 + 'px' : '0px' }}
-                    >
-                      {children.map(g2 => (
-                        <button
-                          key={g2.id}
-                          onClick={() => pickLv2(g1.id, g2.id)}
-                          className={`w-full flex items-center justify-between pl-8 pr-4 py-2 text-xs transition-colors border-l-2 ${
-                            selectedLv2 === g2.id
-                              ? 'bg-forest-50 text-forest-700 border-forest-500 font-medium'
-                              : 'text-gray-500 border-transparent hover:bg-gray-50 hover:text-gray-700'
-                          }`}
-                        >
-                          <span className="truncate text-left">{g2.name}</span>
-                          <span className="text-gray-400 flex-shrink-0 ml-1">{countLv2(g2.id)}</span>
+                    {gPlants.map((p, pi) => {
+                      const globalIdx = plants.findIndex(x => x.id === p.id)
+                      return (
+                        <button key={p.id} onClick={() => goTo(globalIdx)}
+                          className={`w-full flex items-center justify-between px-4 py-1.5 text-left transition-colors hover:bg-forest-50 ${
+                            globalIdx === currentIdx ? 'bg-forest-50 text-forest-700' : ''
+                          }`}>
+                          <span className="text-sm text-gray-600">
+                            <span className="text-gray-300 mr-2 text-xs">{pi + 1}.</span>
+                            {p.name_vi}
+                          </span>
+                          <span className="text-xs text-gray-400 italic ml-2 truncate max-w-[100px]">{p.scientific_name}</span>
                         </button>
-                      ))}
-                    </div>
+                      )
+                    })}
                   </div>
                 )
               })}
             </div>
           </div>
-        </aside>
+        )}
 
-        {/* COL 2: PLANT LIST */}
-        <div className={`flex-shrink-0 bg-gray-50 border-r border-gray-200 overflow-y-auto flex flex-col transition-all duration-200 ${selectedPlant ? 'w-72' : 'flex-1'}`}>
-          <div className="sticky top-0 z-10 bg-gray-50 border-b border-gray-200 px-4 py-3">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-semibold text-gray-800 truncate">{activeGroupName}</span>
-              <span className="text-xs text-gray-400 flex-shrink-0 ml-2">{plants.length} loài</span>
-            </div>
-            <div className="flex gap-1.5">
-              {(['', 'ban-dia', 'nguy-cap'] as const).map(f => (
-                <button key={f} onClick={() => setFilterSpecial(f)}
-                  className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
-                    filterSpecial === f ? 'bg-forest-600 text-white border-forest-600' : 'bg-white text-gray-500 border-gray-200 hover:border-forest-300'
-                  }`}>
-                  {f === '' ? 'Tất cả' : f === 'ban-dia' ? 'Bản địa' : 'Nguy cấp'}
-                </button>
-              ))}
-            </div>
+        {/* CATALOG VIEW */}
+        {loading ? (
+          <div className="flex-1 flex items-center justify-center">
+            <Leaf size={32} className="text-green-800 animate-pulse" />
           </div>
-
-          <div className="flex-1">
-            {loading ? (
-              <div className="p-3 space-y-2">
-                {[...Array(8)].map((_, i) => <div key={i} className="bg-white rounded-xl h-16 animate-pulse border border-gray-100" />)}
-              </div>
-            ) : plants.length === 0 ? (
-              <div className="text-center py-16 text-gray-400">
-                <Leaf size={32} className="mx-auto mb-2 text-gray-200" />
-                <p className="text-sm">Không tìm thấy cây nào</p>
-              </div>
-            ) : (
-              <div className="p-2 space-y-1">
-                {plants.map((p, i) => {
-                  const isActive = selectedPlant?.id === p.id
-                  return (
-                    <button key={p.id} onClick={() => loadDetail(p)}
-                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all border ${
-                        isActive ? 'bg-white border-forest-200 shadow-sm' : 'bg-white/60 border-transparent hover:bg-white hover:border-gray-200'
-                      }`}
-                      style={{ animationDelay: `${i * 0.02}s` }}
-                    >
-                      <div className="w-10 h-10 rounded-lg bg-forest-50 flex-shrink-0 overflow-hidden flex items-center justify-center">
-                        {p.cover_image_url
-                          ? <img src={p.cover_image_url} alt={p.name_vi} className="w-full h-full object-cover" />
-                          : <Leaf size={18} className="text-forest-300" />}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className={`text-sm font-medium truncate ${isActive ? 'text-forest-700' : 'text-gray-800'}`}>{p.name_vi}</div>
-                        {p.scientific_name && <div className="text-xs italic text-gray-400 truncate">{p.scientific_name}</div>}
-                        <div className="flex gap-1 mt-1 flex-wrap">
-                          {p.g1 && <span className="text-xs bg-forest-50 text-forest-700 px-1.5 py-0.5 rounded-full border border-forest-100">{p.g1.name}</span>}
-                          {p.is_native && <span className="text-xs bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded-full border border-amber-100">Bản địa</span>}
-                          {p.is_endangered && <span className="text-xs bg-red-50 text-red-500 px-1.5 py-0.5 rounded-full border border-red-100">Nguy cấp</span>}
-                        </div>
-                      </div>
-                      <ChevronRight size={14} className={`flex-shrink-0 ${isActive ? 'text-forest-500' : 'text-gray-300'}`} />
-                    </button>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* COL 3: DETAIL PANEL */}
-        {selectedPlant ? (
-          <div className="flex-1 bg-white overflow-hidden flex">
-            {detailLoading ? (
-              <div className="flex-1 flex items-center justify-center text-gray-400 gap-2">
-                <Leaf size={18} className="animate-pulse text-forest-400" />
-                <span className="text-sm">Đang tải...</span>
-              </div>
-            ) : (
-              <>
-                {/* LEFT: ảnh */}
-                <div className="w-[42%] flex-shrink-0 bg-forest-50 flex flex-col border-r border-gray-100">
-                  {/* Main image */}
-                  <div className="flex-1 relative flex items-center justify-center overflow-hidden">
-                    {currentImgUrl ? (
-                      <img src={currentImgUrl} alt={selectedPlant.name_vi} className="w-full h-full object-cover" />
-                    ) : (
-                      <Leaf size={72} className="text-forest-200" />
-                    )}
-                    {/* badges */}
-                    <div className="absolute top-3 left-3 flex gap-1.5 flex-col">
-                      {selectedPlant.is_native && <span className="bg-green-600 text-white text-xs px-2 py-0.5 rounded-full font-medium">Bản địa</span>}
-                      {selectedPlant.is_endangered && <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full font-medium">Nguy cấp</span>}
-                    </div>
-                    {/* close */}
-                    <button onClick={() => setSelectedPlant(null)}
-                      className="absolute top-3 right-3 bg-black/25 hover:bg-black/40 text-white rounded-full p-1.5 transition-colors">
-                      <X size={13} />
-                    </button>
-                  </div>
-                  {/* Thumbnails */}
-                  <div className="flex gap-2 p-3 bg-forest-50 border-t border-forest-100">
-                    {[
-                      { key: 'cover' as const, url: selectedPlant.cover_image_url, label: 'Tổng thể', icon: Leaf },
-                      { key: 'flower' as const, url: selectedPlant.flower_leaf_image_url, label: 'Hoa / lá', icon: Leaf },
-                      { key: 'app' as const, url: selectedPlant.application_image_url, label: 'Ứng dụng', icon: TreePine },
-                    ].map(({ key, url, label, icon: Icon }) => (
-                      <button key={key} onClick={() => setActiveImg(key)}
-                        className={`flex flex-col items-center gap-1 group`}>
-                        <div className={`w-12 h-12 rounded-lg overflow-hidden flex items-center justify-center transition-all ${
-                          activeImg === key ? 'ring-2 ring-forest-600' : 'ring-1 ring-gray-200 hover:ring-forest-300'
-                        } ${url ? '' : 'bg-forest-100'}`}>
-                          {url
-                            ? <img src={url} alt={label} className="w-full h-full object-cover" />
-                            : <Icon size={20} className="text-forest-300" />}
-                        </div>
-                        <span className="text-xs text-gray-400 group-hover:text-gray-600">{label}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* RIGHT: info */}
-                <div className="flex-1 overflow-y-auto p-5">
-                  {/* badges */}
-                  <div className="flex flex-wrap gap-1.5 mb-3">
-                    {selectedPlant.g1 && <span className="text-xs bg-forest-50 text-forest-800 px-2.5 py-1 rounded-full border border-forest-100 font-medium">{selectedPlant.g1.name}</span>}
-                    {(selectedPlant as any).g2?.name && <span className="text-xs bg-blue-50 text-blue-800 px-2.5 py-1 rounded-full border border-blue-100">{(selectedPlant as any).g2.name}</span>}
-                    {climates.map((c: any) => <span key={c.id} className="text-xs bg-teal-50 text-teal-800 px-2.5 py-1 rounded-full border border-teal-100">{c.name}</span>)}
-                    {functions.map((f: any) => <span key={f.id} className="text-xs bg-amber-50 text-amber-800 px-2.5 py-1 rounded-full border border-amber-100">{f.name}</span>)}
-                  </div>
-
-                  {/* Tên */}
-                  <h2 className="font-display text-xl font-bold text-gray-900 leading-tight">{selectedPlant.name_vi}</h2>
-                  {selectedPlant.name_en && <p className="text-gray-400 text-sm mt-0.5">{selectedPlant.name_en}</p>}
-                  {selectedPlant.scientific_name && <p className="italic text-forest-600 text-sm mt-1">{selectedPlant.scientific_name}</p>}
-                  {selectedPlant.other_names && <p className="text-gray-400 text-xs mt-1">Còn gọi: {selectedPlant.other_names}</p>}
-                  {selectedPlant.plant_code && <p className="font-mono text-xs text-gray-400 mt-1">{selectedPlant.plant_code}</p>}
-
-                  {/* Specs chips */}
-                  <div className="flex flex-wrap gap-1.5 mt-3 mb-4">
-                    {heightText && <span className="text-xs text-gray-600 bg-gray-100 px-2.5 py-1 rounded-md flex items-center gap-1"><span className="text-gray-400">↕</span>{heightText}</span>}
-                    {selectedPlant.light_requirement && <span className="text-xs text-gray-600 bg-gray-100 px-2.5 py-1 rounded-md flex items-center gap-1"><Sun size={11} className="text-amber-500" />{selectedPlant.light_requirement.split(/[,.\n]/)[0]}</span>}
-                    {selectedPlant.water_requirement && <span className="text-xs text-gray-600 bg-gray-100 px-2.5 py-1 rounded-md flex items-center gap-1"><Droplets size={11} className="text-blue-400" />{selectedPlant.water_requirement.split(/[,.\n]/)[0]}</span>}
-                    {selectedPlant.temperature_range && <span className="text-xs text-gray-600 bg-gray-100 px-2.5 py-1 rounded-md flex items-center gap-1"><Thermometer size={11} className="text-red-400" />{selectedPlant.temperature_range.split(/[,.\n]/)[0]}</span>}
-                    {selectedPlant.flower_color_text && <span className="text-xs text-gray-600 bg-gray-100 px-2.5 py-1 rounded-md">{selectedPlant.flower_color_text}</span>}
-                    {selectedPlant.blooming_period_text && <span className="text-xs text-gray-600 bg-gray-100 px-2.5 py-1 rounded-md">{selectedPlant.blooming_period_text}</span>}
-                  </div>
-
-                  <div className="border-t border-gray-100 mb-4" />
-
-                  {/* Section: Sinh trưởng */}
-                  {(selectedPlant.light_requirement || selectedPlant.water_requirement || selectedPlant.soil_requirement || selectedPlant.temperature_range) && (
-                    <div className="mb-2.5 border border-gray-100 rounded-xl overflow-hidden">
-                      <button onClick={() => toggleSection('grow')}
-                        className="w-full flex items-center justify-between px-4 py-3 hover:bg-forest-50 transition-colors bg-gray-50/50">
-                        <div className="flex items-center gap-2">
-                          <Sun size={13} className="text-forest-600" />
-                          <span className="text-sm font-medium text-gray-700">Điều kiện sinh trưởng</span>
-                        </div>
-                        <ChevronDown size={13} className={`text-gray-400 transition-transform ${expandedSections.grow ? 'rotate-180' : ''}`} />
-                      </button>
-                      {expandedSections.grow && (
-                        <div className="px-4 pb-3 pt-1">
-                          <InfoRow icon={Sun} label="Ánh sáng" value={selectedPlant.light_requirement} />
-                          <InfoRow icon={Droplets} label="Nước & Độ ẩm" value={selectedPlant.water_requirement} />
-                          <InfoRow icon={Sprout} label="Đất & Dinh dưỡng" value={selectedPlant.soil_requirement} />
-                          <InfoRow icon={Thermometer} label="Nhiệt độ" value={selectedPlant.temperature_range} />
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Section: Kỹ thuật */}
-                  {(selectedPlant.planting_technique || selectedPlant.propagation || selectedPlant.landscape_application) && (
-                    <div className="mb-2.5 border border-gray-100 rounded-xl overflow-hidden">
-                      <button onClick={() => toggleSection('tech')}
-                        className="w-full flex items-center justify-between px-4 py-3 hover:bg-forest-50 transition-colors bg-gray-50/50">
-                        <div className="flex items-center gap-2">
-                          <Scissors size={13} className="text-forest-600" />
-                          <span className="text-sm font-medium text-gray-700">Kỹ thuật & Ứng dụng cảnh quan</span>
-                        </div>
-                        <ChevronDown size={13} className={`text-gray-400 transition-transform ${expandedSections.tech ? 'rotate-180' : ''}`} />
-                      </button>
-                      {expandedSections.tech && (
-                        <div className="px-4 pb-3 pt-1">
-                          <InfoRow icon={Scissors} label="Kỹ thuật trồng & chăm sóc" value={selectedPlant.planting_technique} />
-                          <InfoRow icon={Sprout} label="Nhân giống" value={selectedPlant.propagation} />
-                          <InfoRow icon={TreePine} label="Ứng dụng cảnh quan" value={selectedPlant.landscape_application} />
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Section: Kinh nghiệm SHE */}
-                  {(selectedPlant.she_experience || selectedPlant.she_risks) && (
-                    <div className="mb-2.5 border border-gray-100 rounded-xl overflow-hidden">
-                      <button onClick={() => toggleSection('she')}
-                        className="w-full flex items-center justify-between px-4 py-3 hover:bg-forest-50 transition-colors bg-gray-50/50">
-                        <div className="flex items-center gap-2">
-                          <BookOpen size={13} className="text-forest-600" />
-                          <span className="text-sm font-medium text-gray-700">Kinh nghiệm thực tế Khối SHE</span>
-                        </div>
-                        <ChevronDown size={13} className={`text-gray-400 transition-transform ${expandedSections.she ? 'rotate-180' : ''}`} />
-                      </button>
-                      {expandedSections.she && (
-                        <div className="px-4 pb-3 pt-1">
-                          <InfoRow icon={BookOpen} label="Kinh nghiệm thực địa" value={selectedPlant.she_experience} />
-                          <InfoRow icon={AlertTriangle} label="Rủi ro cần lưu ý" value={selectedPlant.she_risks} />
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Đơn vị SHE */}
-                  {unitObjects.length > 0 && (
-                    <div className="mt-4 pt-4 border-t border-gray-100">
-                      <div className="flex items-center gap-2 mb-2">
-                        <MapPin size={13} className="text-forest-600" />
-                        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Đơn vị đang trồng</span>
-                      </div>
-                      <div className="flex flex-col gap-1.5">
-                        {unitObjects.map(u => (
-                          <div key={u.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
-                            <span className="text-sm text-gray-600">{u.name}</span>
-                            <span className="font-mono text-xs text-forest-600 font-bold bg-forest-50 px-2 py-0.5 rounded">{u.code}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Link trang đầy đủ */}
-                  <div className="mt-4 pt-3 border-t border-gray-100">
-                    <Link href={`/plants/${selectedPlant.id}`}
-                      className="inline-flex items-center gap-1.5 text-xs text-forest-600 hover:text-forest-800 transition-colors">
-                      <ExternalLink size={12} />Xem trang đầy đủ
-                    </Link>
-                  </div>
-                </div>
-              </>
-            )}
+        ) : !current ? (
+          <div className="flex-1 flex items-center justify-center text-gray-600">
+            <p>Không tìm thấy cây nào</p>
           </div>
         ) : (
-          <div className="flex-1 flex flex-col items-center justify-center text-gray-400 gap-3 bg-white">
-            <Leaf size={40} className="text-gray-200" />
-            <p className="text-sm">Chọn một loài cây để xem chi tiết</p>
+          <div className="flex-1 flex">
+
+            {/* LEFT: ảnh lớn */}
+            <div className="w-[52%] flex-shrink-0 relative overflow-hidden">
+              {currentImgUrl ? (
+                <img src={currentImgUrl} alt={current.name_vi} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full bg-[#1a2e10] flex items-center justify-center">
+                  <Leaf size={80} className="text-green-900 opacity-20" />
+                </div>
+              )}
+              {/* overlay gradient */}
+              <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(5,12,3,0.85) 0%, transparent 55%)' }} />
+
+              {/* tên cây đè lên ảnh — góc dưới */}
+              <div className="absolute bottom-0 left-0 right-0 p-5">
+                <div className="text-xs font-medium tracking-widest text-green-400 uppercase mb-1">
+                  {current.g1?.name}{current.g2 ? ` · ${(current as any).g2?.name}` : ''}
+                </div>
+                <div className="text-2xl font-semibold text-white leading-tight" style={{ fontFamily: 'Georgia, serif' }}>
+                  {current.name_vi}
+                </div>
+                <div className="text-sm italic text-white/50 mt-1">{current.scientific_name}</div>
+              </div>
+
+              {/* 3 thumbnails dọc góc phải */}
+              <div className="absolute top-4 right-4 flex flex-col gap-2">
+                {[
+                  { key: 'cover' as const, icon: Leaf, label: 'Tổng thể', url: current.cover_image_url },
+                  { key: 'flower' as const, icon: Leaf, label: 'Hoa / lá', url: current.flower_leaf_image_url },
+                  { key: 'app' as const, icon: TreePine, label: 'Ứng dụng', url: current.application_image_url },
+                ].map(({ key, icon: Icon, label, url }) => (
+                  <div key={key} className="flex flex-col items-center gap-1">
+                    <button
+                      onClick={() => setActiveImg(key)}
+                      className={`w-10 h-10 rounded-md overflow-hidden flex items-center justify-center transition-all ${
+                        activeImg === key ? 'ring-2 ring-white' : 'ring-1 ring-white/20 opacity-60 hover:opacity-90'
+                      } ${url ? '' : 'bg-[#2a3a1a]'}`}
+                    >
+                      {url
+                        ? <img src={url} alt={label} className="w-full h-full object-cover" />
+                        : <Icon size={14} className="text-green-500" />}
+                    </button>
+                    <span className="text-white/40 text-[9px]">{label}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* badge bản địa / nguy cấp */}
+              <div className="absolute top-4 left-4 flex flex-col gap-1">
+                {current.is_native && <span className="bg-green-700 text-white text-xs px-2 py-0.5 rounded-full font-medium">Bản địa</span>}
+                {current.is_endangered && <span className="bg-red-700 text-white text-xs px-2 py-0.5 rounded-full font-medium">Nguy cấp</span>}
+              </div>
+
+              {/* nav arrows */}
+              <button onClick={prev} disabled={currentIdx === 0}
+                className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 bg-black/40 hover:bg-black/60 disabled:opacity-20 rounded-full flex items-center justify-center transition-all">
+                <ChevronLeft size={18} className="text-white" />
+              </button>
+              <button onClick={next} disabled={currentIdx === total - 1}
+                className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 bg-black/40 hover:bg-black/60 disabled:opacity-20 rounded-full flex items-center justify-center transition-all">
+                <ChevronRight size={18} className="text-white" />
+              </button>
+            </div>
+
+            {/* RIGHT: thông tin */}
+            <div className="flex-1 bg-[#f8f6f0] overflow-y-auto">
+              <div className="p-6">
+                {/* code */}
+                {current.plant_code && (
+                  <span className="inline-block font-mono text-xs text-gray-400 bg-gray-200 px-2 py-0.5 rounded mb-4">{current.plant_code}</span>
+                )}
+
+                {/* tên */}
+                <h1 className="text-3xl font-semibold text-gray-900 leading-tight mb-1" style={{ fontFamily: 'Georgia, serif' }}>
+                  {current.name_vi}
+                </h1>
+                {current.scientific_name && <p className="italic text-forest-600 text-sm mb-1">{current.scientific_name}</p>}
+                {current.other_names && <p className="text-xs text-gray-400 mb-4">Còn gọi: {current.other_names}</p>}
+
+                {/* bảng thông số nhanh */}
+                <table className="w-full mb-5" style={{ borderCollapse: 'collapse' }}>
+                  <tbody>
+                    {heightText && (
+                      <tr className="border-b border-gray-200">
+                        <td className="py-2 text-xs uppercase tracking-wider text-green-700 font-medium w-32">Chiều cao</td>
+                        <td className="py-2 text-sm font-medium text-gray-800">{heightText}</td>
+                      </tr>
+                    )}
+                    {current.flower_color_text && (
+                      <tr className="border-b border-gray-200">
+                        <td className="py-2 text-xs uppercase tracking-wider text-green-700 font-medium">Màu hoa</td>
+                        <td className="py-2 text-sm font-medium text-gray-800">{current.flower_color_text}</td>
+                      </tr>
+                    )}
+                    {current.blooming_period_text && (
+                      <tr className="border-b border-gray-200">
+                        <td className="py-2 text-xs uppercase tracking-wider text-green-700 font-medium">Nở rộ</td>
+                        <td className="py-2 text-sm font-medium text-gray-800">{current.blooming_period_text}</td>
+                      </tr>
+                    )}
+                    {current.temperature_range && (
+                      <tr className="border-b border-gray-200">
+                        <td className="py-2 text-xs uppercase tracking-wider text-green-700 font-medium">Khí hậu</td>
+                        <td className="py-2 text-sm font-medium text-gray-800">{current.temperature_range}</td>
+                      </tr>
+                    )}
+                    {current.light_requirement && (
+                      <tr className="border-b border-gray-200">
+                        <td className="py-2 text-xs uppercase tracking-wider text-green-700 font-medium">Ánh sáng</td>
+                        <td className="py-2 text-sm font-medium text-gray-800">{current.light_requirement}</td>
+                      </tr>
+                    )}
+                    {unitNames.length > 0 && (
+                      <tr className="border-b border-gray-200">
+                        <td className="py-2 text-xs uppercase tracking-wider text-green-700 font-medium">Đơn vị trồng</td>
+                        <td className="py-2 text-sm font-medium text-gray-800">{unitNames.join(', ')}</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+
+                {/* mô tả */}
+                {(current.description || current.landscape_application) && (
+                  <div className="mb-5">
+                    <div className="text-xs uppercase tracking-widest text-gray-400 font-medium mb-2">Mô tả</div>
+                    <p className="text-sm text-gray-600 leading-relaxed">
+                      {current.description || current.landscape_application}
+                    </p>
+                  </div>
+                )}
+
+                {/* link chi tiết */}
+                <Link href={`/plants/${current.id}`}
+                  className="inline-flex items-center gap-2 text-sm font-medium text-forest-700 tracking-wider hover:text-forest-900 transition-colors uppercase">
+                  Xem chi tiết đầy đủ <ArrowRight size={14} />
+                </Link>
+              </div>
+            </div>
           </div>
         )}
 
+        {/* progress bar */}
+        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#1e2618]">
+          <div
+            className="h-full bg-green-600 transition-all duration-300"
+            style={{ width: total ? `${((currentIdx + 1) / total) * 100}%` : '0%' }}
+          />
+        </div>
       </div>
     </div>
   )
