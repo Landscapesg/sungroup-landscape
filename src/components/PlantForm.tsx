@@ -50,8 +50,14 @@ export default function PlantForm({ plantId }: PlantFormProps) {
     }
     loadMaster()
     if (!isNew && plantId) {
-      supabase.from('plants').select('*').eq('id', plantId).single().then(({ data }) => {
-        if (data) setForm({
+      supabase.from('plants').select('*').eq('id', plantId).single().then(async ({ data }) => {
+        if (data) {
+          // Load groups2 trước khi set form để dropdown không bị reset
+          if (data.group_lv1_id) {
+            const { data: g2data } = await supabase.from('plant_groups').select('*').eq('level', 2).eq('parent_id', data.group_lv1_id).order('sort_order')
+            setGroups2(g2data || [])
+          }
+          setForm({
           plant_code: data.plant_code || '', name_vi: data.name_vi || '',
           name_en: data.name_en || '', scientific_name: data.scientific_name || '',
           other_names: (data.other_names || []).join(', '),
@@ -71,7 +77,8 @@ export default function PlantForm({ plantId }: PlantFormProps) {
           propagation: data.propagation || '', landscape_application: data.landscape_application || '',
           she_experience: data.she_experience || '', she_risks: data.she_risks || '',
           status: data.status || 'ACTIVE',
-        })
+          })
+        }
         setLoading(false)
       })
     }
