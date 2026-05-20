@@ -70,14 +70,14 @@ export default function PlantDetailPage({ params }: { params: { id: string } }) 
     if (!value) return null
     return (
       <tr className="border-b border-gray-100 last:border-0">
-        <td className="py-2.5 pr-4 text-xs uppercase tracking-wider text-gray-400 font-medium align-top w-36">{label}</td>
-        <td className="py-2.5 text-sm text-gray-800 font-medium">{value}</td>
+        <td className="py-2 pr-4 text-xs uppercase tracking-wider text-gray-400 font-medium align-top" style={{ width: '120px' }}>{label}</td>
+        <td className="py-2 text-sm text-gray-800">{value}</td>
       </tr>
     )
   }
 
   const Section = ({ letter, title, children }: { letter: string; title: string; children: React.ReactNode }) => (
-    <div className="border border-gray-100 rounded-xl overflow-hidden mb-4">
+    <div className="border border-gray-100 rounded-xl overflow-hidden mb-3">
       <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-100">
         <span className="text-xs font-medium tracking-widest uppercase text-green-700">{letter} — {title}</span>
       </div>
@@ -90,11 +90,14 @@ export default function PlantDetailPage({ params }: { params: { id: string } }) 
   )
 
   return (
-    <div className="min-h-screen bg-white flex flex-col">
+    // Desktop: h-screen flex-col, cột phải cuộn độc lập
+    // Mobile: min-h-screen, cuộn toàn trang
+    <div className="bg-white flex flex-col" style={{ minHeight: '100vh' }}>
 
-      {/* ── TOPBAR — sticky ── */}
-      <div className="sticky top-0 z-30 bg-white border-b border-gray-100 px-4 md:px-6 py-3 flex items-center justify-between shadow-sm">
-        <Link href="/plants" className="flex items-center gap-2 text-xs font-medium tracking-wider text-forest-600 uppercase hover:text-forest-800 transition-colors">
+      {/* ── TOPBAR STICKY ── */}
+      <div className="sticky top-0 z-30 bg-white border-b border-gray-100 px-4 md:px-6 py-3 flex items-center justify-between shadow-sm flex-shrink-0">
+        <Link href="/plants"
+          className="flex items-center gap-2 text-xs font-medium tracking-wider text-forest-600 uppercase hover:text-forest-800 transition-colors">
           <ArrowLeft size={13} />Thư viện thực vật
         </Link>
         <div className="flex items-center gap-3">
@@ -103,16 +106,16 @@ export default function PlantDetailPage({ params }: { params: { id: string } }) 
               {plant.plant_code}
             </span>
           )}
-          <Link href={`/admin/plants/${plant.id}`} className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-600 transition-colors">
+          <Link href={`/admin/plants/${plant.id}`}
+            className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-600 transition-colors">
             <Pencil size={12} />Chỉnh sửa
           </Link>
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto w-full px-4 md:px-6 py-6 md:py-8">
-
-        {/* ── HERO ── */}
-        <div className="mb-6">
+      {/* ── HERO ── */}
+      <div className="px-4 md:px-6 py-5 border-b border-gray-100 flex-shrink-0">
+        <div className="max-w-5xl mx-auto">
           <div className="flex items-center gap-2 flex-wrap mb-3">
             {group1 && (
               <span className="bg-forest-600 text-white text-xs px-3 py-1 rounded-full font-medium uppercase tracking-wide">
@@ -124,119 +127,114 @@ export default function PlantDetailPage({ params }: { params: { id: string } }) 
                 {plant.plant_code}
               </span>
             )}
-            {plant.is_native && <span className="bg-amber-100 text-amber-800 text-xs px-2.5 py-1 rounded-full">Bản địa</span>}
+            {plant.is_native    && <span className="bg-amber-100 text-amber-800 text-xs px-2.5 py-1 rounded-full">Bản địa</span>}
             {plant.is_endangered && <span className="bg-red-100 text-red-700 text-xs px-2.5 py-1 rounded-full">Nguy cấp</span>}
           </div>
-          <h1 className="text-3xl md:text-4xl font-semibold text-gray-900 leading-tight mb-2" style={{ fontFamily: 'Georgia, serif' }}>
+          <h1 className="text-3xl md:text-4xl font-semibold text-gray-900 leading-tight mb-2"
+            style={{ fontFamily: 'Georgia, serif' }}>
             {plant.name_vi}
           </h1>
-          <div className="flex items-center gap-3 flex-wrap">
-            {plant.scientific_name && <span className="italic text-forest-600 text-sm md:text-base">{plant.scientific_name}</span>}
-            {plant.other_names && <span className="text-sm text-gray-400">Còn gọi: {plant.other_names}</span>}
-            {plant.name_en && <span className="text-xs uppercase tracking-wider text-gray-400">ENG: {plant.name_en}</span>}
+          <div className="flex items-center gap-3 flex-wrap text-sm">
+            {plant.scientific_name && <span className="italic text-forest-600">{plant.scientific_name}</span>}
+            {plant.other_names    && <span className="text-gray-400">Còn gọi: {plant.other_names}</span>}
+            {plant.name_en        && <span className="text-xs uppercase tracking-wider text-gray-400">ENG: {plant.name_en}</span>}
           </div>
         </div>
+      </div>
 
-        {/* ── BODY ──
-            Desktop: 2 cột (ảnh trái 42% | sections phải)
-            Mobile:  1 cột (ảnh → thumbnails → mô tả → sections xuống dưới)
-        ── */}
-        <div className="md:flex md:gap-8">
+      {/* ── BODY ──
+          Desktop: flex-row, cột trái cố định + cột phải cuộn riêng
+          Mobile:  flex-col, cuộn toàn trang
+      ── */}
+      <div className="flex-1 flex flex-col md:flex-row overflow-hidden max-w-5xl mx-auto w-full px-0 md:px-6">
 
-          {/* CỘT TRÁI — ảnh */}
-          <div className="md:w-[42%] md:flex-shrink-0 mb-6 md:mb-0">
-            {/* main image */}
-            <div className="rounded-xl overflow-hidden mb-3 bg-forest-50 flex items-center justify-center" style={{ height: '260px' }}>
-              {currentImgUrl
-                ? <img src={currentImgUrl} alt={plant.name_vi} className="w-full h-full object-cover" />
-                : <Leaf size={56} className="text-forest-200" />
-              }
+        {/* ─── CỘT TRÁI: ảnh cố định (desktop), full width (mobile) ─── */}
+        <div className="md:w-64 md:flex-shrink-0 md:overflow-y-auto md:border-r md:border-gray-100 px-4 md:px-0 md:pr-6 py-5 md:py-6">
+
+          {/* main image */}
+          <div className="rounded-xl overflow-hidden mb-3 bg-forest-50 flex items-center justify-center"
+            style={{ height: '220px' }}>
+            {currentImgUrl
+              ? <img src={currentImgUrl} alt={plant.name_vi} className="w-full h-full object-cover" />
+              : <Leaf size={56} className="text-forest-200" />
+            }
+          </div>
+
+          {/* 3 thumbnails */}
+          <div className="grid grid-cols-3 gap-2 mb-5">
+            {[
+              { key: 'cover'  as const, url: plant.cover_image_url,      label: 'Tổng thể', Icon: Leaf },
+              { key: 'flower' as const, url: plant.flower_leaf_image_url, label: 'Hoa / lá', Icon: Leaf },
+              { key: 'app'    as const, url: plant.application_image_url, label: 'Ứng dụng', Icon: TreePine },
+            ].map(({ key, url, label, Icon }) => (
+              <button key={key} onClick={() => setActiveImg(key)} className="flex flex-col items-center gap-1">
+                <div className={`w-full rounded-lg overflow-hidden flex items-center justify-center transition-all h-14 ${
+                  activeImg === key ? 'ring-2 ring-forest-600' : 'ring-1 ring-gray-200 hover:ring-forest-300'
+                } ${url ? '' : 'bg-forest-50'}`}>
+                  {url
+                    ? <img src={url} alt={label} className="w-full h-full object-cover" />
+                    : <Icon size={20} className="text-forest-300" />
+                  }
+                </div>
+                <span className="text-xs text-gray-400">{label}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* mô tả — luôn hiện dưới thumbnail ở cả 2 màn hình */}
+          {(plant.description || plant.landscape_application) && (
+            <div>
+              <div className="text-xs font-medium tracking-widest uppercase text-gray-400 mb-2">
+                Mô tả đặc tính loài
+              </div>
+              <p className="text-sm text-gray-600 leading-relaxed">
+                {plant.description || plant.landscape_application}
+              </p>
             </div>
+          )}
+        </div>
 
-            {/* 3 thumbnails — ngang đều */}
-            <div className="grid grid-cols-3 gap-2 mb-5">
-              {[
-                { key: 'cover'  as const, url: plant.cover_image_url,        label: 'Tổng thể', Icon: Leaf },
-                { key: 'flower' as const, url: plant.flower_leaf_image_url,   label: 'Hoa / lá', Icon: Leaf },
-                { key: 'app'    as const, url: plant.application_image_url,   label: 'Ứng dụng', Icon: TreePine },
-              ].map(({ key, url, label, Icon }) => (
-                <button key={key} onClick={() => setActiveImg(key)} className="flex flex-col items-center gap-1">
-                  <div className={`w-full rounded-lg overflow-hidden flex items-center justify-center transition-all h-14 ${
-                    activeImg === key ? 'ring-2 ring-forest-600' : 'ring-1 ring-gray-200 hover:ring-forest-300'
-                  } ${url ? '' : 'bg-forest-50'}`}>
-                    {url
-                      ? <img src={url} alt={label} className="w-full h-full object-cover" />
-                      : <Icon size={20} className="text-forest-300" />
-                    }
-                  </div>
-                  <span className="text-xs text-gray-400">{label}</span>
-                </button>
+        {/* ─── CỘT PHẢI: sections cuộn độc lập (desktop) ─── */}
+        <div className="flex-1 min-w-0 md:overflow-y-auto px-4 md:px-0 md:pl-6 py-5 md:py-6">
+
+          <Section letter="A" title="Phân loại">
+            <InfoRow label="Nhóm cây"        value={group1?.name} />
+            <InfoRow label="Phân loại cấp 2" value={group2?.name} />
+            {climates.map((c: any)  => <InfoRow key={c.id} label="Khí hậu"   value={c.name} />)}
+            {functions.map((f: any) => <InfoRow key={f.id} label="Chức năng" value={f.name} />)}
+          </Section>
+
+          <Section letter="B" title="Đặc điểm sinh học">
+            <InfoRow label="Chiều cao"       value={heightText} />
+            <InfoRow label="Màu sắc hoa"     value={plant.flower_color_text} />
+            <InfoRow label="Thời điểm nở rộ" value={plant.blooming_period_text} />
+            <InfoRow label="Ánh sáng"        value={plant.light_requirement} />
+            <InfoRow label="Nước & độ ẩm"    value={plant.water_requirement} />
+            <InfoRow label="Đất trồng"       value={plant.soil_requirement} />
+            <InfoRow label="Nhiệt độ"        value={plant.temperature_range} />
+          </Section>
+
+          <Section letter="C" title="Kỹ thuật & ứng dụng">
+            <InfoRow label="Kỹ thuật trồng"    value={plant.planting_technique} />
+            <InfoRow label="Nhân giống"         value={plant.propagation} />
+            <InfoRow label="Ứng dụng cảnh quan" value={plant.landscape_application} />
+          </Section>
+
+          {(plant.she_experience || plant.she_risks) && (
+            <Section letter="D" title="Kinh nghiệm Khối SHE">
+              <InfoRow label="Thực địa" value={plant.she_experience} />
+              <InfoRow label="Rủi ro"   value={plant.she_risks} />
+            </Section>
+          )}
+
+          {unitObjects.length > 0 && (
+            <Section letter="E" title="Đơn vị đang trồng">
+              {unitObjects.map((u: any) => (
+                <InfoRow key={u.id} label={u.code} value={u.name} />
               ))}
-            </div>
-
-            {/* mô tả — chỉ hiện trên desktop ở cột trái */}
-            {(plant.description || plant.landscape_application) && (
-              <div className="hidden md:block">
-                <div className="text-xs font-medium tracking-widest uppercase text-gray-400 mb-2">Mô tả đặc tính loài</div>
-                <p className="text-sm text-gray-600 leading-relaxed">
-                  {plant.description || plant.landscape_application}
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* CỘT PHẢI — sections */}
-          <div className="flex-1 min-w-0">
-
-            {/* mô tả — chỉ hiện trên mobile, bên trên sections */}
-            {(plant.description || plant.landscape_application) && (
-              <div className="md:hidden mb-5 bg-gray-50 rounded-xl px-4 py-3">
-                <div className="text-xs font-medium tracking-widest uppercase text-gray-400 mb-1.5">Mô tả đặc tính loài</div>
-                <p className="text-sm text-gray-600 leading-relaxed">
-                  {plant.description || plant.landscape_application}
-                </p>
-              </div>
-            )}
-
-            <Section letter="A" title="Phân loại">
-              <InfoRow label="Nhóm cây"        value={group1?.name} />
-              <InfoRow label="Phân loại cấp 2" value={group2?.name} />
-              {climates.map((c: any)  => <InfoRow key={c.id} label="Khí hậu"   value={c.name} />)}
-              {functions.map((f: any) => <InfoRow key={f.id} label="Chức năng" value={f.name} />)}
             </Section>
+          )}
 
-            <Section letter="B" title="Đặc điểm sinh học">
-              <InfoRow label="Chiều cao"       value={heightText} />
-              <InfoRow label="Màu sắc hoa"     value={plant.flower_color_text} />
-              <InfoRow label="Thời điểm nở rộ" value={plant.blooming_period_text} />
-              <InfoRow label="Ánh sáng"        value={plant.light_requirement} />
-              <InfoRow label="Nước & độ ẩm"    value={plant.water_requirement} />
-              <InfoRow label="Đất trồng"       value={plant.soil_requirement} />
-              <InfoRow label="Nhiệt độ"        value={plant.temperature_range} />
-            </Section>
-
-            <Section letter="C" title="Kỹ thuật & ứng dụng">
-              <InfoRow label="Kỹ thuật trồng"    value={plant.planting_technique} />
-              <InfoRow label="Nhân giống"         value={plant.propagation} />
-              <InfoRow label="Ứng dụng cảnh quan" value={plant.landscape_application} />
-            </Section>
-
-            {(plant.she_experience || plant.she_risks) && (
-              <Section letter="D" title="Kinh nghiệm Khối SHE">
-                <InfoRow label="Thực địa" value={plant.she_experience} />
-                <InfoRow label="Rủi ro"   value={plant.she_risks} />
-              </Section>
-            )}
-
-            {unitObjects.length > 0 && (
-              <Section letter="E" title="Đơn vị đang trồng">
-                {unitObjects.map((u: any) => (
-                  <InfoRow key={u.id} label={u.code} value={u.name} />
-                ))}
-              </Section>
-            )}
-
-          </div>
         </div>
       </div>
     </div>
