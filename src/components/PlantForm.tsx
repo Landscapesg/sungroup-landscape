@@ -84,12 +84,17 @@ export default function PlantForm({ plantId }: PlantFormProps) {
     }
   }, [plantId, isNew])
 
-  useEffect(() => {
-    if (form.group_lv1_id) {
-      supabase.from('plant_groups').select('*').eq('level', 2).eq('parent_id', form.group_lv1_id).order('sort_order')
+  // Load groups2 khi user chọn nhóm cấp 1 mới
+  function handleLv1Change(id: string) {
+    upd('group_lv1_id', id)
+    upd('group_lv2_id', '')
+    if (id) {
+      supabase.from('plant_groups').select('*').eq('level', 2).eq('parent_id', id).order('sort_order')
         .then(({ data }) => setGroups2(data || []))
-    } else setGroups2([])
-  }, [form.group_lv1_id])
+    } else {
+      setGroups2([])
+    }
+  }
 
   const upd = (key: string, val: any) => setForm(p => ({ ...p, [key]: val }))
   const toggleArr = (key: 'climate_ids' | 'special_function_ids' | 'she_unit_ids', val: string) => {
@@ -199,7 +204,7 @@ export default function PlantForm({ plantId }: PlantFormProps) {
             <h2 className="font-semibold text-gray-700 mb-4 text-sm uppercase tracking-wide text-forest-700">Phân loại</h2>
             <div className="grid grid-cols-2 gap-4">
               <div><label className="block text-sm font-medium text-gray-600 mb-1">Nhóm Cấp 1 <span className="text-red-500">*</span></label>
-                <select className="input" value={form.group_lv1_id} onChange={e => { upd('group_lv1_id', e.target.value); upd('group_lv2_id', '') }}>
+                <select className="input" value={form.group_lv1_id} onChange={e => handleLv1Change(e.target.value)}>
                   <option value="">-- Chọn nhóm --</option>
                   {groups1.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
                 </select></div>
