@@ -114,9 +114,9 @@ export default function PlantsPage() {
       setLoading(true)
       const { data: all } = await supabase
         .from('plants')
-        .select('id, group_lv1_id, group_lv2_id, she_unit_ids, is_native, is_endangered')
+        .select('id, name_vi, group_lv1_id, group_lv2_id, she_unit_ids, is_native, is_endangered')
         .eq('status', 'ACTIVE')
-      setAllPlants(all || [])
+      setAllPlants((all || []) as any[])
 
       let q = supabase
         .from('plants')
