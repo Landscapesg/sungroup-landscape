@@ -48,6 +48,7 @@ update special_functions set name = 'Lọc không khí' where code = 'CN_LOC_KK'
 alter table plants add column if not exists trunk_diameter_cm numeric;
 alter table plants add column if not exists canopy_diameter_max_m numeric;
 alter table plants add column if not exists is_imported boolean default false;
+alter table plants add column if not exists origin_type text;
 
 
 -- 3) CẬP NHẬT PHÂN LOẠI CẤP 1, CẤP 2 THEO SƠ ĐỒ SUN GROUP MỚI

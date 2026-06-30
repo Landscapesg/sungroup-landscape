@@ -30,7 +30,7 @@ export default function PlantForm({ plantId }: PlantFormProps) {
     climate_ids: [] as string[], special_function_ids: [] as string[],
     flower_color_text: '', blooming_period_text: '',
     height_max_m: '', trunk_diameter_cm: '', canopy_diameter_max_m: '',
-    is_native: false, is_imported: false,
+    origin_type: '',
     light_requirement: '', water_requirement: '', soil_requirement: '', temperature_range: '',
     planting_technique: '', watering_fertilizing: '', pruning_technique: '',
     pest_control: '', propagation: '', landscape_application: '',
@@ -75,7 +75,7 @@ export default function PlantForm({ plantId }: PlantFormProps) {
           flower_color_text: data.flower_color_text || '', blooming_period_text: data.blooming_period_text || '',
           height_max_m: data.height_max_m || '',
           trunk_diameter_cm: data.trunk_diameter_cm || '', canopy_diameter_max_m: data.canopy_diameter_max_m || '',
-          is_native: data.is_native || false, is_imported: data.is_imported || false,
+          origin_type: data.origin_type || '',
           light_requirement: data.light_requirement || '', water_requirement: data.water_requirement || '',
           soil_requirement: data.soil_requirement || '', temperature_range: data.temperature_range || '',
           planting_technique: data.planting_technique || '', watering_fertilizing: data.watering_fertilizing || '',
@@ -371,15 +371,21 @@ export default function PlantForm({ plantId }: PlantFormProps) {
               <div><label className="block text-sm font-medium text-gray-600 mb-1">Đường kính tán tối đa (m)</label>
                 <input className="input" type="number" step="0.1" placeholder="VD: 2.5" value={form.canopy_diameter_max_m} onChange={e => upd('canopy_diameter_max_m', e.target.value)} /></div>
             </div>
-            <div className="flex gap-6 mt-4">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" className="w-4 h-4 accent-forest-600" checked={form.is_native} onChange={e => upd('is_native', e.target.checked)} />
-                <span className="text-sm text-gray-700">Cây địa phương Việt Nam</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" className="w-4 h-4 accent-forest-600" checked={form.is_imported} onChange={e => upd('is_imported', e.target.checked)} />
-                <span className="text-sm text-gray-700">Cây ngoại nhập</span>
-              </label>
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-gray-600 mb-2">Nguồn gốc cây</label>
+              <div className="flex flex-wrap gap-3">
+                {[
+                  { value: 'native', label: 'Cây bản địa Việt Nam' },
+                  { value: 'naturalized', label: 'Cây du nhập đã thích nghi' },
+                  { value: 'imported', label: 'Cây ngoại nhập' },
+                ].map(opt => (
+                  <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" name="origin_type" className="w-4 h-4 accent-forest-600"
+                      checked={form.origin_type === opt.value} onChange={() => upd('origin_type', opt.value)} />
+                    <span className="text-sm text-gray-700">{opt.label}</span>
+                  </label>
+                ))}
+              </div>
             </div>
           </div>
         </div>
