@@ -8,7 +8,7 @@ interface Group { id: string; name: string; level: number; parent_id: string | n
 interface Unit  { id: string; code: string; name: string; sort_order: number }
 interface Plant {
   id: string; name_vi: string; scientific_name?: string; name_en?: string
-  other_names?: string; plant_code?: string; group_lv1_id?: string; group_lv2_id?: string
+  other_names?: string[]; plant_code?: string; group_lv1_id?: string; group_lv2_id?: string
   she_unit_ids?: string[]; cover_image_url?: string; flower_leaf_image_url?: string
   application_image_url?: string; is_native?: boolean; is_endangered?: boolean
   height_min_m?: number; height_max_m?: number; flower_color_text?: string
@@ -49,11 +49,14 @@ export default function PlantsPage() {
     if (activeFilter !== 'all') list = list.filter(p => p.group_lv1_id === activeFilter)
     if (search.trim()) {
       const q = search.toLowerCase()
-      list = list.filter(p =>
-        p.name_vi?.toLowerCase().includes(q) ||
-        p.scientific_name?.toLowerCase().includes(q) ||
-        p.other_names?.toLowerCase().includes(q)
-      )
+      list = list.filter(p => {
+        const otherNames = Array.isArray(p.other_names) ? p.other_names.join(', ') : (p.other_names || '')
+        return (
+          p.name_vi?.toLowerCase().includes(q) ||
+          p.scientific_name?.toLowerCase().includes(q) ||
+          otherNames.toLowerCase().includes(q)
+        )
+      })
     }
     return list
   }, [allPlants, search, activeFilter])
