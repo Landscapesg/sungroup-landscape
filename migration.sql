@@ -139,11 +139,35 @@ insert into plant_groups (name, level, parent_id, sort_order) values
 on conflict do nothing;
 
 -- ============================================================
+-- 5) MỞ QUYỀN UPLOAD ẢNH THỦ CÔNG CHO BUCKET "plant-images"
+-- ------------------------------------------------------------
+-- Bucket plant-images đã có sẵn (Public) nhưng cần policy cho
+-- phép web (anon key) Insert/Update/Delete ảnh. Lệnh dưới tự
+-- xóa policy trùng tên trước khi tạo lại, an toàn khi chạy nhiều lần.
+
+drop policy if exists "Cho phép upload anh plant-images" on storage.objects;
+create policy "Cho phép upload anh plant-images"
+on storage.objects for insert
+to public
+with check (bucket_id = 'plant-images');
+
+drop policy if exists "Cho phép cap nhat anh plant-images" on storage.objects;
+create policy "Cho phép cap nhat anh plant-images"
+on storage.objects for update
+to public
+using (bucket_id = 'plant-images');
+
+drop policy if exists "Cho phép xoa anh plant-images" on storage.objects;
+create policy "Cho phép xoa anh plant-images"
+on storage.objects for delete
+to public
+using (bucket_id = 'plant-images');
+
+-- ============================================================
 -- XONG. Sau khi chạy, vào Table Editor kiểm tra lại các bảng:
 -- plant_groups, climates, special_functions, plants
 --
 -- BƯỚC TIẾP THEO (làm thủ công, không chạy SQL):
--- Vào Storage > nếu CHƯA có bucket "plants" thì tạo:
---   New bucket > tên "plants" > tick Public > Create
--- (Nếu đã có bucket "plants" từ trước thì bỏ qua bước này)
+-- KHÔNG cần tạo bucket mới — bucket "plant-images" đã có sẵn
+-- và đã được mở quyền upload bởi đoạn SQL phía trên.
 -- ============================================================

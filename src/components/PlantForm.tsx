@@ -115,9 +115,9 @@ export default function PlantForm({ plantId }: PlantFormProps) {
       const ext = file.name.split('.').pop()
       const fileName = `${key}-${Date.now()}.${ext}`
       const filePath = `${plantId || 'new'}/${fileName}`
-      const { error: upErr } = await supabase.storage.from('plants').upload(filePath, file, { upsert: true })
+      const { error: upErr } = await supabase.storage.from('plant-images').upload(filePath, file, { upsert: true })
       if (upErr) { alert('Lỗi tải ảnh lên: ' + upErr.message); setUploadingKey(null); return }
-      const { data } = supabase.storage.from('plants').getPublicUrl(filePath)
+      const { data } = supabase.storage.from('plant-images').getPublicUrl(filePath)
       upd(key, data.publicUrl)
     } catch (err: any) {
       alert('Lỗi tải ảnh lên: ' + err.message)
