@@ -25,6 +25,10 @@ body {
 ::-webkit-scrollbar-track { background: #f0f7f0; }
 ::-webkit-scrollbar-thumb { background: #b3dbb3; border-radius: 3px; }
 
+/* Ẩn thanh cuộn ngang cho chip filter trên mobile */
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
 /* Badge status */
 .badge-active   { @apply bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded-full font-medium; }
 .badge-inactive { @apply bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full font-medium; }
