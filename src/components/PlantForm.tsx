@@ -233,7 +233,7 @@ export default function PlantForm({ plantId }: PlantFormProps) {
                 </select>
                 {form.group_lv1_id && groups2.length === 0 && <p className="text-xs text-gray-400 mt-1">Chưa có nhóm Cấp 2</p>}
               </div>
-              <div className="col-span-2"><label className="block text-sm font-medium text-gray-600 mb-1">Nhóm Cấp 3 — Tầm cao</label>
+              <div className="col-span-2"><label className="block text-sm font-medium text-gray-600 mb-1">Nhóm Cấp 3</label>
                 <select className="input" value={form.group_lv3_id} onChange={e => upd('group_lv3_id', e.target.value)}>
                   <option value="">-- Chọn tầm cao --</option>
                   {groups3.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
@@ -375,7 +375,7 @@ export default function PlantForm({ plantId }: PlantFormProps) {
               <label className="block text-sm font-medium text-gray-600 mb-2">Nguồn gốc cây</label>
               <div className="flex flex-wrap gap-3">
                 {[
-                  { value: 'native', label: 'Cây bản địa Việt Nam' },
+                  { value: 'native', label: 'Cây bản địa' },
                   { value: 'naturalized', label: 'Cây du nhập đã thích nghi' },
                   { value: 'imported', label: 'Cây ngoại nhập' },
                 ].map(opt => (
