@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import { Save, ArrowLeft, Loader2, Upload, X, ChevronDown, ChevronUp, Building2, Check } from 'lucide-react'
+import { Save, ArrowLeft, Loader2, Upload, X, ChevronDown, Building2, Check } from 'lucide-react'
 
 interface PlantFormProps { plantId?: string }
 
@@ -13,22 +13,24 @@ export default function PlantForm({ plantId }: PlantFormProps) {
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(!isNew)
   const [activeSection, setActiveSection] = useState(0)
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({ B: true, C: true, D: true, E: true })
   const [sheOpen, setSheOpen] = useState(false)
 
   const [groups1, setGroups1] = useState<any[]>([])
   const [groups2, setGroups2] = useState<any[]>([])
+  const [groups3, setGroups3] = useState<any[]>([])
   const [climates, setClimates] = useState<any[]>([])
   const [functions, setFunctions] = useState<any[]>([])
   const [sheUnits, setSheUnits] = useState<any[]>([])
+  const [uploadingKey, setUploadingKey] = useState<string | null>(null)
 
   const [form, setForm] = useState({
     plant_code: '', name_vi: '', name_en: '', scientific_name: '', other_names: '',
-    group_lv1_id: '', group_lv2_id: '', she_unit_ids: [] as string[],
+    group_lv1_id: '', group_lv2_id: '', group_lv3_id: '', she_unit_ids: [] as string[],
     cover_image_url: '', flower_leaf_image_url: '', application_image_url: '',
     climate_ids: [] as string[], special_function_ids: [] as string[],
     flower_color_text: '', blooming_period_text: '',
-    height_min_m: '', height_max_m: '', is_native: false, is_endangered: false,
+    height_max_m: '', trunk_diameter_cm: '', canopy_diameter_max_m: '',
+    is_native: false, is_imported: false,
     light_requirement: '', water_requirement: '', soil_requirement: '', temperature_range: '',
     planting_technique: '', watering_fertilizing: '', pruning_technique: '',
     pest_control: '', propagation: '', landscape_application: '',
@@ -37,13 +39,15 @@ export default function PlantForm({ plantId }: PlantFormProps) {
 
   useEffect(() => {
     async function loadMaster() {
-      const [g1, c, fn, u] = await Promise.all([
+      const [g1, g3, c, fn, u] = await Promise.all([
         supabase.from('plant_groups').select('*').eq('level', 1).order('sort_order'),
+        supabase.from('plant_groups').select('*').eq('level', 3).order('sort_order'),
         supabase.from('climates').select('*').order('sort_order'),
         supabase.from('special_functions').select('*').order('sort_order'),
         supabase.from('she_units').select('*').order('sort_order'),
       ])
       setGroups1(g1.data || [])
+      setGroups3(g3.data || [])
       setClimates(c.data || [])
       setFunctions(fn.data || [])
       setSheUnits(u.data || [])
@@ -62,14 +66,16 @@ export default function PlantForm({ plantId }: PlantFormProps) {
           name_en: data.name_en || '', scientific_name: data.scientific_name || '',
           other_names: (data.other_names || []).join(', '),
           group_lv1_id: data.group_lv1_id || '', group_lv2_id: data.group_lv2_id || '',
+          group_lv3_id: data.group_lv3_id || '',
           she_unit_ids: data.she_unit_ids || [],
           cover_image_url: data.cover_image_url || '',
           flower_leaf_image_url: data.flower_leaf_image_url || '',
           application_image_url: data.application_image_url || '',
           climate_ids: data.climate_ids || [], special_function_ids: data.special_function_ids || [],
           flower_color_text: data.flower_color_text || '', blooming_period_text: data.blooming_period_text || '',
-          height_min_m: data.height_min_m || '', height_max_m: data.height_max_m || '',
-          is_native: data.is_native || false, is_endangered: data.is_endangered || false,
+          height_max_m: data.height_max_m || '',
+          trunk_diameter_cm: data.trunk_diameter_cm || '', canopy_diameter_max_m: data.canopy_diameter_max_m || '',
+          is_native: data.is_native || false, is_imported: data.is_imported || false,
           light_requirement: data.light_requirement || '', water_requirement: data.water_requirement || '',
           soil_requirement: data.soil_requirement || '', temperature_range: data.temperature_range || '',
           planting_technique: data.planting_technique || '', watering_fertilizing: data.watering_fertilizing || '',
@@ -103,6 +109,22 @@ export default function PlantForm({ plantId }: PlantFormProps) {
     })
   }
 
+  async function handleFileUpload(key: string, file: File) {
+    setUploadingKey(key)
+    try {
+      const ext = file.name.split('.').pop()
+      const fileName = `${key}-${Date.now()}.${ext}`
+      const filePath = `${plantId || 'new'}/${fileName}`
+      const { error: upErr } = await supabase.storage.from('plants').upload(filePath, file, { upsert: true })
+      if (upErr) { alert('Lỗi tải ảnh lên: ' + upErr.message); setUploadingKey(null); return }
+      const { data } = supabase.storage.from('plants').getPublicUrl(filePath)
+      upd(key, data.publicUrl)
+    } catch (err: any) {
+      alert('Lỗi tải ảnh lên: ' + err.message)
+    }
+    setUploadingKey(null)
+  }
+
   async function handleSave() {
     if (!form.name_vi.trim()) { alert('Vui lòng nhập Tên tiếng Việt'); return }
     if (!form.group_lv1_id) { alert('Vui lòng chọn Nhóm Cấp 1'); return }
@@ -110,10 +132,12 @@ export default function PlantForm({ plantId }: PlantFormProps) {
     const payload = {
       ...form,
       other_names: form.other_names ? form.other_names.split(',').map((s: string) => s.trim()).filter(Boolean) : [],
-      height_min_m: form.height_min_m ? parseFloat(form.height_min_m as string) : null,
       height_max_m: form.height_max_m ? parseFloat(form.height_max_m as string) : null,
+      trunk_diameter_cm: form.trunk_diameter_cm ? parseFloat(form.trunk_diameter_cm as string) : null,
+      canopy_diameter_max_m: form.canopy_diameter_max_m ? parseFloat(form.canopy_diameter_max_m as string) : null,
       group_lv1_id: form.group_lv1_id || null,
       group_lv2_id: form.group_lv2_id || null,
+      group_lv3_id: form.group_lv3_id || null,
       // she_unit_ids là uuid[] — đảm bảo không gửi string rỗng
       she_unit_ids: form.she_unit_ids.filter((id: string) => id && id.length > 0),
       climate_ids: form.climate_ids.filter((id: string) => id && id.length > 0),
@@ -142,33 +166,12 @@ export default function PlantForm({ plantId }: PlantFormProps) {
   if (loading) return <div className="flex items-center justify-center py-20 text-gray-400"><Loader2 className="animate-spin mr-2" size={20} />Đang tải...</div>
 
   const sheByMang = sheUnits.reduce((acc: any, u: any) => { if (!acc[u.mang]) acc[u.mang] = []; acc[u.mang].push(u); return acc }, {})
-  const tabs = [{ label: '1. Định danh', icon: '🏷️' }, { label: '2. Hình ảnh', icon: '🖼️' }, { label: '3. Đặc điểm sinh thái', icon: '🌿' }, { label: '4. Kiến thức chuyên sâu', icon: '📘' }]
+  const tabs = [{ label: '1. Định danh', icon: '🏷️' }, { label: '2. Hình ảnh', icon: '🖼️' }, { label: '3. Đặc điểm sinh thái', icon: '🌿' }]
 
   const imgFields = [
     { key: 'cover_image_url', label: 'Hình ảnh chính', note: 'Ảnh tổng thể rõ cây — JPG/PNG', required: true },
     { key: 'flower_leaf_image_url', label: 'Hình ảnh bộ phận cây', note: 'Lá, hoa, thân, quả... ảnh chi tiết đặc trưng', required: false },
     { key: 'application_image_url', label: 'Hình ảnh ứng dụng', note: 'Cây được ứng dụng trong thực tế', required: false },
-  ]
-
-  const expertSections = [
-    { key: 'B', label: 'B — Điều kiện sinh trưởng', fields: [
-      { key: 'light_requirement', label: 'Ánh sáng', ph: 'Ưa nắng hoàn toàn / nửa bóng / bóng râm...' },
-      { key: 'water_requirement', label: 'Nước & độ ẩm', ph: 'Nhu cầu tưới, chịu hạn hay ưa ẩm...' },
-      { key: 'soil_requirement', label: 'Đất & dinh dưỡng', ph: 'Loại đất, pH, nhu cầu phân bón...' },
-      { key: 'temperature_range', label: 'Nhiệt độ & khí hậu', ph: 'Ngưỡng nhiệt độ, chịu mưa lạnh không...' },
-    ]},
-    { key: 'C', label: 'C — Kỹ thuật trồng, chăm sóc', fields: [
-      { key: 'planting_technique', label: 'Kỹ thuật trồng, chăm sóc', ph: 'Trồng & setup, tưới nước & bón phân, cắt tỉa & tạo hình...' },
-    ]},
-    { key: 'D', label: 'D — Kỹ thuật nhân giống', fields: [
-      { key: 'propagation', label: 'Kỹ thuật nhân giống', ph: 'Gieo hạt, giâm cành, ghép, chiết...' },
-    ]},
-    { key: 'E', label: 'E — Ứng dụng cảnh quan', fields: [
-      { key: 'landscape_application', label: 'Ứng dụng cảnh quan', ph: 'Trồng viền, trồng khối, điểm nhấn, chậu, ban công...' },
-    ]},
-    { key: 'F', label: 'F — Kinh nghiệm thực tế Khối SHE', fields: [
-      { key: 'she_experience', label: 'Kinh nghiệm & Rủi ro thực tế', ph: 'Kinh nghiệm thực địa, rủi ro cần lưu ý...' },
-    ]},
   ]
 
   return (
@@ -201,9 +204,7 @@ export default function PlantForm({ plantId }: PlantFormProps) {
           <div className="card p-6">
             <h2 className="font-semibold text-gray-700 mb-4 text-sm uppercase tracking-wide text-forest-700">Thông tin định danh</h2>
             <div className="grid grid-cols-2 gap-4">
-              <div><label className="block text-sm font-medium text-gray-600 mb-1">Mã cây</label>
-                <input className="input" placeholder="VD: CB-001" value={form.plant_code} onChange={e => upd('plant_code', e.target.value)} /></div>
-              <div><label className="block text-sm font-medium text-gray-600 mb-1">Trạng thái</label>
+              <div className="col-span-2"><label className="block text-sm font-medium text-gray-600 mb-1">Trạng thái</label>
                 <select className="input" value={form.status} onChange={e => upd('status', e.target.value)}>
                   <option value="ACTIVE">Hoạt động</option><option value="INACTIVE">Tạm ngừng</option><option value="DRAFT">Nháp</option>
                 </select></div>
@@ -213,7 +214,7 @@ export default function PlantForm({ plantId }: PlantFormProps) {
                 <input className="input" placeholder="VD: Azalea" value={form.name_en} onChange={e => upd('name_en', e.target.value)} /></div>
               <div><label className="block text-sm font-medium text-gray-600 mb-1">Tên khoa học</label>
                 <input className="input italic" placeholder="VD: Rhododendron simsii" value={form.scientific_name} onChange={e => upd('scientific_name', e.target.value)} /></div>
-              <div className="col-span-2"><label className="block text-sm font-medium text-gray-600 mb-1">Tên gọi khác</label>
+              <div className="col-span-2"><label className="block text-sm font-medium text-gray-600 mb-1">Tên gọi khác phổ biến</label>
                 <input className="input" placeholder="Nhập các tên khác, cách nhau bằng dấu phẩy" value={form.other_names} onChange={e => upd('other_names', e.target.value)} /></div>
             </div>
           </div>
@@ -231,6 +232,12 @@ export default function PlantForm({ plantId }: PlantFormProps) {
                   {groups2.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
                 </select>
                 {form.group_lv1_id && groups2.length === 0 && <p className="text-xs text-gray-400 mt-1">Chưa có nhóm Cấp 2</p>}
+              </div>
+              <div className="col-span-2"><label className="block text-sm font-medium text-gray-600 mb-1">Nhóm Cấp 3 — Tầm cao</label>
+                <select className="input" value={form.group_lv3_id} onChange={e => upd('group_lv3_id', e.target.value)}>
+                  <option value="">-- Chọn tầm cao --</option>
+                  {groups3.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                </select>
               </div>
             </div>
           </div>
@@ -298,6 +305,17 @@ export default function PlantForm({ plantId }: PlantFormProps) {
               </div>
               <p className="text-xs text-gray-400 mb-3">{note}</p>
               <input className="input mb-3" placeholder="Dán URL hình ảnh vào đây..." value={(form as any)[key]} onChange={e => upd(key, e.target.value)} />
+              <div className="flex items-center gap-2 mb-3">
+                <div className="flex-1 h-px bg-gray-100" />
+                <span className="text-xs text-gray-400">hoặc</span>
+                <div className="flex-1 h-px bg-gray-100" />
+              </div>
+              <label className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 cursor-pointer hover:border-forest-400 hover:text-forest-700 transition-colors mb-3">
+                {uploadingKey === key ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />}
+                {uploadingKey === key ? 'Đang tải lên...' : 'Tải ảnh từ máy lên'}
+                <input type="file" accept="image/*" className="hidden" disabled={uploadingKey === key}
+                  onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(key, f); e.target.value = '' }} />
+              </label>
               {(form as any)[key] ? (
                 <div className="relative inline-block">
                   <img src={(form as any)[key]} alt={label} className="w-48 h-36 object-cover rounded-lg border border-gray-200" />
@@ -306,7 +324,7 @@ export default function PlantForm({ plantId }: PlantFormProps) {
               ) : (
                 <div className="border-2 border-dashed border-gray-200 rounded-lg p-8 text-center text-gray-400">
                   <Upload size={24} className="mx-auto mb-2 text-gray-300" />
-                  <p className="text-xs">Dán URL ảnh vào ô trên</p>
+                  <p className="text-xs">Dán URL ảnh hoặc tải ảnh từ máy lên</p>
                 </div>
               )}
             </div>
@@ -335,58 +353,35 @@ export default function PlantForm({ plantId }: PlantFormProps) {
             </div>
           </div>
           <div className="card p-6">
-            <h2 className="font-semibold text-gray-700 mb-4 text-sm uppercase tracking-wide text-forest-700">Màu sắc & Mùa hoa</h2>
+            <h2 className="font-semibold text-gray-700 mb-4 text-sm uppercase tracking-wide text-forest-700">Màu sắc & Thời gian</h2>
             <div className="grid grid-cols-2 gap-4">
-              <div><label className="block text-sm font-medium text-gray-600 mb-1">Màu hoa</label>
+              <div><label className="block text-sm font-medium text-gray-600 mb-1">Màu hoa/ lá</label>
                 <input className="input" placeholder="VD: Đỏ, Hồng, Vàng..." value={form.flower_color_text} onChange={e => upd('flower_color_text', e.target.value)} /></div>
-              <div><label className="block text-sm font-medium text-gray-600 mb-1">Mùa hoa nở</label>
+              <div><label className="block text-sm font-medium text-gray-600 mb-1">Thời gian nở/ chuyển màu</label>
                 <input className="input" placeholder="VD: Quanh năm, Xuân-Hè..." value={form.blooming_period_text} onChange={e => upd('blooming_period_text', e.target.value)} /></div>
             </div>
           </div>
           <div className="card p-6">
             <h2 className="font-semibold text-gray-700 mb-4 text-sm uppercase tracking-wide text-forest-700">Kích thước & Phân loại đặc biệt</h2>
             <div className="grid grid-cols-2 gap-4">
-              <div><label className="block text-sm font-medium text-gray-600 mb-1">Chiều cao tối thiểu (m)</label>
-                <input className="input" type="number" step="0.1" placeholder="0.5" value={form.height_min_m} onChange={e => upd('height_min_m', e.target.value)} /></div>
               <div><label className="block text-sm font-medium text-gray-600 mb-1">Chiều cao tối đa (m)</label>
                 <input className="input" type="number" step="0.1" placeholder="3.0" value={form.height_max_m} onChange={e => upd('height_max_m', e.target.value)} /></div>
+              <div><label className="block text-sm font-medium text-gray-600 mb-1">Đường kính thân (cm)</label>
+                <input className="input" type="number" step="0.1" placeholder="VD: 15" value={form.trunk_diameter_cm} onChange={e => upd('trunk_diameter_cm', e.target.value)} /></div>
+              <div><label className="block text-sm font-medium text-gray-600 mb-1">Đường kính tán tối đa (m)</label>
+                <input className="input" type="number" step="0.1" placeholder="VD: 2.5" value={form.canopy_diameter_max_m} onChange={e => upd('canopy_diameter_max_m', e.target.value)} /></div>
             </div>
             <div className="flex gap-6 mt-4">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" className="w-4 h-4 accent-forest-600" checked={form.is_native} onChange={e => upd('is_native', e.target.checked)} />
-                <span className="text-sm text-gray-700">Cây bản địa Việt Nam</span>
+                <span className="text-sm text-gray-700">Cây địa phương Việt Nam</span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" className="w-4 h-4 accent-forest-600" checked={form.is_endangered} onChange={e => upd('is_endangered', e.target.checked)} />
-                <span className="text-sm text-gray-700">Loài nguy cấp / quý hiếm</span>
+                <input type="checkbox" className="w-4 h-4 accent-forest-600" checked={form.is_imported} onChange={e => upd('is_imported', e.target.checked)} />
+                <span className="text-sm text-gray-700">Cây ngoại nhập</span>
               </label>
             </div>
           </div>
-        </div>
-      )}
-
-      {activeSection === 3 && (
-        <div className="space-y-3">
-          {expertSections.map(section => (
-            <div key={section.key} className="card overflow-hidden">
-              <button className="w-full flex items-center justify-between px-6 py-4 bg-gray-50 hover:bg-forest-50 transition-colors"
-                onClick={() => setExpanded(e => ({ ...e, [section.key]: !e[section.key] }))}>
-                <span className="font-semibold text-gray-700 text-sm">{section.label}</span>
-                {expanded[section.key] ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
-              </button>
-              {expanded[section.key] && (
-                <div className="p-6 space-y-4">
-                  {section.fields.map(field => (
-                    <div key={field.key}>
-                      <label className="block text-sm font-medium text-gray-600 mb-1">{field.label}</label>
-                      <textarea className="input h-20 resize-y" placeholder={field.ph}
-                        value={(form as any)[field.key]} onChange={e => upd(field.key, e.target.value)} />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
         </div>
       )}
 
