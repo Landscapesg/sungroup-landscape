@@ -33,7 +33,7 @@ export default function AdminPlantsPage() {
   useEffect(() => {
     async function load() {
       setLoading(true)
-      let q = supabase.from('plants').select(`*, g1:plant_groups!group_lv1_id(name)`).order('plant_code')
+      let q = supabase.from('plants').select(`*, g1:plant_groups!group_lv1_id(name), g2:plant_groups!group_lv2_id(name), g3:plant_groups!group_lv3_id(name)`).order('plant_code')
       if (search)        q = q.ilike('name_vi', `%${search}%`)
       if (selectedGroup) q = q.eq('group_lv1_id', selectedGroup)
       const { data } = await q
@@ -67,25 +67,29 @@ export default function AdminPlantsPage() {
   // ── XUẤT FILE ──────────────────────────────────────────────────────────────
   function buildRows(list: any[]) {
     return list.map(p => {
-      const unitCodes = (p.she_unit_ids || []).map((id: string) => sheUnits.find(u => u.id === id)?.code).filter(Boolean).join(', ')
+      const unitNames = (p.she_unit_ids || []).map((id: string) => sheUnits.find(u => u.id === id)?.name).filter(Boolean).join(', ')
+      const otherNames = Array.isArray(p.other_names) ? p.other_names.join(', ') : (p.other_names || '')
+      const originLabel = p.origin_type === 'native' ? 'Cây bản địa' : p.origin_type === 'naturalized' ? 'Cây du nhập đã thích nghi' : p.origin_type === 'imported' ? 'Cây ngoại nhập' : ''
       return {
-        'Mã cây':         p.plant_code || '',
-        'Tên tiếng Việt': p.name_vi    || '',
-        'Tên khoa học':   p.scientific_name || '',
-        'Tên tiếng Anh':  p.name_en    || '',
-        'Tên khác':       p.other_names || '',
-        'Nhóm cây':       p.g1?.name   || '',
-        'Đơn vị SHE':     unitCodes,
-        'Trạng thái':     p.status === 'ACTIVE' ? 'Hoạt động' : p.status === 'INACTIVE' ? 'Tạm ngừng' : 'Nháp',
-        'Bản địa':        p.is_native ? 'Có' : 'Không',
-        'Nguy cấp':       p.is_endangered ? 'Có' : 'Không',
-        'Chiều cao (m)':  p.height_min_m && p.height_max_m ? `${p.height_min_m}–${p.height_max_m}` : p.height_min_m || '',
-        'Màu hoa':        p.flower_color_text || '',
-        'Mùa hoa':        p.blooming_period_text || '',
-        'Ánh sáng':       p.light_requirement || '',
-        'Độ ẩm':          p.water_requirement || '',
-        'Đất trồng':      p.soil_requirement || '',
-        'Nhiệt độ':       p.temperature_range || '',
+        'Tên tiếng Việt':           p.name_vi              || '',
+        'Tên khoa học':             p.scientific_name      || '',
+        'Tên tiếng Anh':            p.name_en              || '',
+        'Tên gọi khác phổ biến':    otherNames,
+        'Nhóm Cấp 1':               p.g1?.name             || '',
+        'Nhóm Cấp 2':               p.g2?.name             || '',
+        'Nhóm Cấp 3':               p.g3?.name             || '',
+        'Đơn vị Khối SHE':          unitNames,
+        'Trạng thái':               p.status === 'ACTIVE' ? 'Hoạt động' : p.status === 'INACTIVE' ? 'Tạm ngừng' : 'Nháp',
+        'Nguồn gốc cây':            originLabel,
+        'Màu hoa/lá':               p.flower_color_text    || '',
+        'Thời gian nở/chuyển màu':  p.blooming_period_text || '',
+        'Chiều cao tối đa (m)':     p.height_max_m         || '',
+        'Đường kính thân (cm)':     p.trunk_diameter_cm    || '',
+        'Đường kính tán tối đa (m)': p.canopy_diameter_max_m || '',
+        'Ánh sáng':                 p.light_requirement    || '',
+        'Độ ẩm':                    p.water_requirement    || '',
+        'Đất trồng':                p.soil_requirement     || '',
+        'Nhiệt độ':                 p.temperature_range    || '',
       }
     })
   }
@@ -94,7 +98,7 @@ export default function AdminPlantsPage() {
     setExporting('csv'); setShowExport(false)
     let list = plants
     if (all) {
-      const { data } = await supabase.from('plants').select(`*, g1:plant_groups!group_lv1_id(name)`).order('plant_code')
+      const { data } = await supabase.from('plants').select(`*, g1:plant_groups!group_lv1_id(name), g2:plant_groups!group_lv2_id(name), g3:plant_groups!group_lv3_id(name)`).order('plant_code')
       list = data || []
     }
     const rows = buildRows(list)
@@ -116,7 +120,7 @@ export default function AdminPlantsPage() {
     setExporting('excel'); setShowExport(false)
     let list = plants
     if (all) {
-      const { data } = await supabase.from('plants').select(`*, g1:plant_groups!group_lv1_id(name)`).order('plant_code')
+      const { data } = await supabase.from('plants').select(`*, g1:plant_groups!group_lv1_id(name), g2:plant_groups!group_lv2_id(name), g3:plant_groups!group_lv3_id(name)`).order('plant_code')
       list = data || []
     }
     const rows = buildRows(list)
