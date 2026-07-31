@@ -251,38 +251,45 @@ export default function AdminPlantsPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-100 bg-gray-50/50">
-              <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Tên tiếng Việt</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Tên cây</th>
               <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden md:table-cell">Tên khoa học</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden lg:table-cell">Nhóm</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden lg:table-cell">Đơn vị SHE</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden lg:table-cell">Phân loại</th>
               <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Trạng thái</th>
               <th className="px-4 py-3 w-20"></th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={6} className="text-center py-12 text-gray-400">
+              <tr><td colSpan={5} className="text-center py-12 text-gray-400">
                 <Leaf size={24} className="mx-auto mb-2 animate-pulse text-forest-300" />Đang tải...
               </td></tr>
             ) : plants.length === 0 ? (
-              <tr><td colSpan={6} className="text-center py-12 text-gray-400">
+              <tr><td colSpan={5} className="text-center py-12 text-gray-400">
                 Không tìm thấy cây nào. <Link href="/admin/plants/new" className="text-forest-600 hover:underline">Thêm cây đầu tiên →</Link>
               </td></tr>
             ) : plants.map((p) => {
-              const unitNames = (p.she_unit_ids || []).map((id: string) => sheUnits.find(u => u.id === id)?.code).filter(Boolean)
               return (
                 <tr key={p.id} className="table-row">
-                  <td className="px-4 py-3 font-medium text-gray-800">{p.name_vi}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-lg overflow-hidden flex-shrink-0 bg-forest-50 flex items-center justify-center border border-gray-100">
+                        {p.cover_image_url
+                          ? <img src={p.cover_image_url} alt={p.name_vi} className="w-full h-full object-cover" />
+                          : <Leaf size={14} className="text-forest-300" />}
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-800">{p.name_vi}</p>
+                        {p.other_names && Array.isArray(p.other_names) && p.other_names.length > 0 && (
+                          <p className="text-xs text-gray-400 truncate max-w-[160px]">{p.other_names.join(', ')}</p>
+                        )}
+                      </div>
+                    </div>
+                  </td>
                   <td className="px-4 py-3 italic text-gray-500 hidden md:table-cell text-xs">{p.scientific_name || '—'}</td>
                   <td className="px-4 py-3 hidden lg:table-cell">
-                    {p.g1 ? <span className="bg-forest-50 text-forest-700 text-xs px-2 py-0.5 rounded-full border border-forest-200">{p.g1.name}</span> : '—'}
-                  </td>
-                  <td className="px-4 py-3 hidden lg:table-cell">
-                    <div className="flex flex-wrap gap-1">
-                      {unitNames.slice(0, 3).map((code: string) => (
-                        <span key={code} className="bg-blue-50 text-blue-700 text-xs px-1.5 py-0.5 rounded font-mono">{code}</span>
-                      ))}
-                      {unitNames.length > 3 && <span className="text-xs text-gray-400">+{unitNames.length - 3}</span>}
+                    <div className="flex flex-col gap-1">
+                      {p.g1 && <span className="bg-forest-50 text-forest-700 text-xs px-2 py-0.5 rounded-full border border-forest-200 w-fit">{p.g1.name}</span>}
+                      {p.g2 && <span className="text-xs text-gray-400">{p.g2.name}</span>}
                     </div>
                   </td>
                   <td className="px-4 py-3">
