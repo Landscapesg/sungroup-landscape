@@ -33,7 +33,7 @@ export default function AdminPlantsPage() {
   useEffect(() => {
     async function load() {
       setLoading(true)
-      let q = supabase.from('plants').select(`*, g1:plant_groups!group_lv1_id(name), g2:plant_groups!group_lv2_id(name), g3:plant_groups!group_lv3_id(name)`).order('plant_code')
+      let q = supabase.from('plants').select(`*, g1:plant_groups!group_lv1_id(name), g2:plant_groups!group_lv2_id(name), g3:plant_groups!group_lv3_id(name)`).order('name_vi')
       if (search)        q = q.ilike('name_vi', `%${search}%`)
       if (selectedGroup) q = q.eq('group_lv1_id', selectedGroup)
       const { data } = await q
@@ -98,7 +98,7 @@ export default function AdminPlantsPage() {
     setExporting('csv'); setShowExport(false)
     let list = plants
     if (all) {
-      const { data } = await supabase.from('plants').select(`*, g1:plant_groups!group_lv1_id(name), g2:plant_groups!group_lv2_id(name), g3:plant_groups!group_lv3_id(name)`).order('plant_code')
+      const { data } = await supabase.from('plants').select(`*, g1:plant_groups!group_lv1_id(name), g2:plant_groups!group_lv2_id(name), g3:plant_groups!group_lv3_id(name)`).order('name_vi')
       list = data || []
     }
     const rows = buildRows(list)
@@ -120,7 +120,7 @@ export default function AdminPlantsPage() {
     setExporting('excel'); setShowExport(false)
     let list = plants
     if (all) {
-      const { data } = await supabase.from('plants').select(`*, g1:plant_groups!group_lv1_id(name), g2:plant_groups!group_lv2_id(name), g3:plant_groups!group_lv3_id(name)`).order('plant_code')
+      const { data } = await supabase.from('plants').select(`*, g1:plant_groups!group_lv1_id(name), g2:plant_groups!group_lv2_id(name), g3:plant_groups!group_lv3_id(name)`).order('name_vi')
       list = data || []
     }
     const rows = buildRows(list)
@@ -251,7 +251,6 @@ export default function AdminPlantsPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-100 bg-gray-50/50">
-              <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Mã cây</th>
               <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Tên tiếng Việt</th>
               <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden md:table-cell">Tên khoa học</th>
               <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden lg:table-cell">Nhóm</th>
@@ -262,18 +261,17 @@ export default function AdminPlantsPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={7} className="text-center py-12 text-gray-400">
+              <tr><td colSpan={6} className="text-center py-12 text-gray-400">
                 <Leaf size={24} className="mx-auto mb-2 animate-pulse text-forest-300" />Đang tải...
               </td></tr>
             ) : plants.length === 0 ? (
-              <tr><td colSpan={7} className="text-center py-12 text-gray-400">
+              <tr><td colSpan={6} className="text-center py-12 text-gray-400">
                 Không tìm thấy cây nào. <Link href="/admin/plants/new" className="text-forest-600 hover:underline">Thêm cây đầu tiên →</Link>
               </td></tr>
             ) : plants.map((p) => {
               const unitNames = (p.she_unit_ids || []).map((id: string) => sheUnits.find(u => u.id === id)?.code).filter(Boolean)
               return (
                 <tr key={p.id} className="table-row">
-                  <td className="px-4 py-3 font-mono text-xs text-gray-500">{p.plant_code || '—'}</td>
                   <td className="px-4 py-3 font-medium text-gray-800">{p.name_vi}</td>
                   <td className="px-4 py-3 italic text-gray-500 hidden md:table-cell text-xs">{p.scientific_name || '—'}</td>
                   <td className="px-4 py-3 hidden lg:table-cell">
