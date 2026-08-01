@@ -8,14 +8,14 @@ interface Group { id: string; name: string; level: number; parent_id: string | n
 interface Unit  { id: string; code: string; name: string; sort_order: number }
 interface Plant {
   id: string; name_vi: string; scientific_name?: string; name_en?: string
-  other_names?: string[]; plant_code?: string; group_lv1_id?: string; group_lv2_id?: string
+  other_names?: string[]; plant_code?: string; group_lv1_id?: string; group_lv1_id_2?: string; group_lv2_id?: string
   she_unit_ids?: string[]; cover_image_url?: string; flower_leaf_image_url?: string
   application_image_url?: string; is_native?: boolean; is_endangered?: boolean
   height_min_m?: number; height_max_m?: number; flower_color_text?: string
   blooming_period_text?: string; light_requirement?: string; water_requirement?: string
   soil_requirement?: string; temperature_range?: string; planting_technique?: string
   propagation?: string; landscape_application?: string; she_experience?: string
-  she_risks?: string; status?: string; g1?: { name: string }; g2?: { name: string }
+  she_risks?: string; status?: string; g1?: { name: string }; g1b?: { name: string }; g2?: { name: string }
   description?: string
 }
 
@@ -39,14 +39,14 @@ export default function PlantsPage() {
     supabase.from('she_units').select('*').order('sort_order').then(({ data }) => setSheUnits(data || []))
     supabase
       .from('plants')
-      .select('*, g1:plant_groups!group_lv1_id(name), g2:plant_groups!group_lv2_id(name)')
+      .select('*, g1:plant_groups!group_lv1_id(name), g1b:plant_groups!group_lv1_id_2(name), g2:plant_groups!group_lv2_id(name)')
       .eq('status', 'ACTIVE').order('name_vi')
       .then(({ data }) => { setAllPlants(data || []); setLoading(false) })
   }, [])
 
   const plants = useMemo(() => {
     let list = allPlants
-    if (activeFilter !== 'all') list = list.filter(p => p.group_lv1_id === activeFilter)
+    if (activeFilter !== 'all') list = list.filter(p => p.group_lv1_id === activeFilter || p.group_lv1_id_2 === activeFilter)
     if (search.trim()) {
       const q = search.toLowerCase()
       list = list.filter(p => {
@@ -172,7 +172,7 @@ export default function PlantsPage() {
                         <p className="text-sm text-gray-100 font-medium truncate group-hover:text-green-400 transition-colors">{p.name_vi}</p>
                         <p className="text-xs text-gray-500 italic truncate">{p.scientific_name}</p>
                       </div>
-                      <span className="text-xs text-gray-600 flex-shrink-0 hidden sm:inline">{(p as any).g1?.name}</span>
+                      <span className="text-xs text-gray-600 flex-shrink-0 hidden sm:inline">{(p as any).g1?.name}{(p as any).g1b?.name ? ` + ${(p as any).g1b.name}` : ''}</span>
                       <ChevronRight size={14} className="text-gray-700 flex-shrink-0" />
                     </button>
                   ))}
@@ -202,7 +202,7 @@ export default function PlantsPage() {
               </button>
               <div className="flex-1 overflow-y-auto py-2">
                 {lv1Groups.map((g1, gi) => {
-                  const gPlants = allPlants.filter(p => p.group_lv1_id === g1.id)
+                  const gPlants = allPlants.filter(p => p.group_lv1_id === g1.id || p.group_lv1_id_2 === g1.id)
                   if (!gPlants.length) return null
                   return (
                     <div key={g1.id} className="mb-4">
@@ -242,7 +242,7 @@ export default function PlantsPage() {
                 }
                 <div className="absolute inset-0" style={{ background: 'linear-gradient(to top,rgba(5,12,3,.85) 0%,transparent 55%)' }} />
                 <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-5">
-                  <div className="text-xs font-medium tracking-widest text-green-400 uppercase mb-1 truncate">{(current as any).g1?.name}{(current as any).g2?.name ? ` · ${(current as any).g2.name}` : ''}</div>
+                  <div className="text-xs font-medium tracking-widest text-green-400 uppercase mb-1 truncate">{(current as any).g1?.name}{(current as any).g1b?.name ? ` + ${(current as any).g1b.name}` : ''}{(current as any).g2?.name ? ` · ${(current as any).g2.name}` : ''}</div>
                   <div className="text-xl sm:text-2xl font-semibold text-white leading-tight" style={{ fontFamily: 'Georgia, serif' }}>{current.name_vi}</div>
                   <div className="text-sm italic text-white/50 mt-1">{current.scientific_name}</div>
                 </div>

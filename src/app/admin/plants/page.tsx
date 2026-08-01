@@ -33,9 +33,9 @@ export default function AdminPlantsPage() {
   useEffect(() => {
     async function load() {
       setLoading(true)
-      let q = supabase.from('plants').select(`*, g1:plant_groups!group_lv1_id(name), g2:plant_groups!group_lv2_id(name), g3:plant_groups!group_lv3_id(name)`).order('name_vi')
+      let q = supabase.from('plants').select(`*, g1:plant_groups!group_lv1_id(name), g1b:plant_groups!group_lv1_id_2(name), g2:plant_groups!group_lv2_id(name), g3:plant_groups!group_lv3_id(name)`).order('name_vi')
       if (search)        q = q.ilike('name_vi', `%${search}%`)
-      if (selectedGroup) q = q.eq('group_lv1_id', selectedGroup)
+      if (selectedGroup) q = q.or(`group_lv1_id.eq.${selectedGroup},group_lv1_id_2.eq.${selectedGroup}`)
       const { data } = await q
       let result = data || []
       if (selectedUnit) result = result.filter((p: any) => (p.she_unit_ids || []).includes(selectedUnit))
@@ -289,6 +289,7 @@ export default function AdminPlantsPage() {
                   <td className="px-4 py-3 hidden lg:table-cell">
                     <div className="flex flex-col gap-1">
                       {p.g1 && <span className="bg-forest-50 text-forest-700 text-xs px-2 py-0.5 rounded-full border border-forest-200 w-fit">{p.g1.name}</span>}
+                      {p.g1b && <span className="bg-amber-50 text-amber-700 text-xs px-2 py-0.5 rounded-full border border-amber-200 w-fit">{p.g1b.name}</span>}
                       {p.g2 && <span className="text-xs text-gray-400">{p.g2.name}</span>}
                     </div>
                   </td>

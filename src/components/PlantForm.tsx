@@ -25,7 +25,7 @@ export default function PlantForm({ plantId }: PlantFormProps) {
 
   const [form, setForm] = useState({
     plant_code: '', name_vi: '', name_en: '', scientific_name: '', other_names: '',
-    group_lv1_id: '', group_lv2_id: '', group_lv3_id: '', she_unit_ids: [] as string[],
+    group_lv1_id: '', group_lv1_id_2: '', group_lv2_id: '', group_lv3_id: '', she_unit_ids: [] as string[],
     cover_image_url: '', flower_leaf_image_url: '', application_image_url: '',
     climate_ids: [] as string[], special_function_ids: [] as string[],
     flower_color_text: '', blooming_period_text: '',
@@ -65,7 +65,8 @@ export default function PlantForm({ plantId }: PlantFormProps) {
           plant_code: data.plant_code || '', name_vi: data.name_vi || '',
           name_en: data.name_en || '', scientific_name: data.scientific_name || '',
           other_names: (data.other_names || []).join(', '),
-          group_lv1_id: data.group_lv1_id || '', group_lv2_id: data.group_lv2_id || '',
+          group_lv1_id: data.group_lv1_id || '', group_lv1_id_2: data.group_lv1_id_2 || '',
+          group_lv2_id: data.group_lv2_id || '',
           group_lv3_id: data.group_lv3_id || '',
           she_unit_ids: data.she_unit_ids || [],
           cover_image_url: data.cover_image_url || '',
@@ -136,6 +137,7 @@ export default function PlantForm({ plantId }: PlantFormProps) {
       trunk_diameter_cm: form.trunk_diameter_cm ? parseFloat(form.trunk_diameter_cm as string) : null,
       canopy_diameter_max_m: form.canopy_diameter_max_m ? parseFloat(form.canopy_diameter_max_m as string) : null,
       group_lv1_id: form.group_lv1_id || null,
+      group_lv1_id_2: form.group_lv1_id_2 || null,
       group_lv2_id: form.group_lv2_id || null,
       group_lv3_id: form.group_lv3_id || null,
       // she_unit_ids là uuid[] — đảm bảo không gửi string rỗng
@@ -237,6 +239,12 @@ export default function PlantForm({ plantId }: PlantFormProps) {
                 <select className="input" value={form.group_lv3_id} onChange={e => upd('group_lv3_id', e.target.value)}>
                   <option value="">-- Chọn tầm cao --</option>
                   {groups3.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                </select>
+              </div>
+              <div className="col-span-2"><label className="block text-sm font-medium text-gray-600 mb-1">Nhóm Cấp 1 phụ <span className="text-gray-400 font-normal">(nếu cây thuộc thêm 1 nhóm khác)</span></label>
+                <select className="input" value={form.group_lv1_id_2} onChange={e => upd('group_lv1_id_2', e.target.value)}>
+                  <option value="">-- Không có --</option>
+                  {groups1.filter(g => g.id !== form.group_lv1_id).map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
                 </select>
               </div>
             </div>

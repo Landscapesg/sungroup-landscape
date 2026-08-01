@@ -9,6 +9,7 @@ interface Unit { id: string; code: string; name: string }
 export default function PlantDetailPage({ params }: { params: { id: string } }) {
   const [plant, setPlant]         = useState<any>(null)
   const [group1, setGroup1]       = useState<any>(null)
+  const [group1b, setGroup1b]     = useState<any>(null)
   const [group2, setGroup2]       = useState<any>(null)
   const [sheUnits, setSheUnits]   = useState<Unit[]>([])
   const [climates, setClimates]   = useState<any[]>([])
@@ -21,14 +22,15 @@ export default function PlantDetailPage({ params }: { params: { id: string } }) 
       const { data: p } = await supabase.from('plants').select('*').eq('id', params.id).single()
       if (!p) { setLoading(false); return }
       setPlant(p)
-      const [g1, g2, units, clim, fn] = await Promise.all([
+      const [g1, g1b, g2, units, clim, fn] = await Promise.all([
         p.group_lv1_id ? supabase.from('plant_groups').select('*').eq('id', p.group_lv1_id).single() : Promise.resolve({ data: null }),
+        p.group_lv1_id_2 ? supabase.from('plant_groups').select('*').eq('id', p.group_lv1_id_2).single() : Promise.resolve({ data: null }),
         p.group_lv2_id ? supabase.from('plant_groups').select('*').eq('id', p.group_lv2_id).single() : Promise.resolve({ data: null }),
         supabase.from('she_units').select('*').order('sort_order'),
         p.climate_ids?.length ? supabase.from('climates').select('*').in('id', p.climate_ids) : Promise.resolve({ data: [] }),
         p.special_function_ids?.length ? supabase.from('special_functions').select('*').in('id', p.special_function_ids) : Promise.resolve({ data: [] }),
       ])
-      setGroup1(g1.data); setGroup2(g2.data)
+      setGroup1(g1.data); setGroup1b(g1b.data); setGroup2(g2.data)
       setSheUnits(units.data || [])
       setClimates(clim.data || [])
       setFunctions(fn.data || [])
@@ -127,6 +129,11 @@ export default function PlantDetailPage({ params }: { params: { id: string } }) 
                 {group1.name}
               </span>
             )}
+            {group1b && (
+              <span className="bg-amber-600 text-white text-xs px-3 py-1 rounded-full font-medium uppercase tracking-wide">
+                {group1b.name}
+              </span>
+            )}
             {plant.plant_code && (
               <span className="border border-gray-200 text-gray-400 text-xs px-2.5 py-1 rounded-full font-mono sm:hidden">
                 {plant.plant_code}
@@ -204,6 +211,7 @@ export default function PlantDetailPage({ params }: { params: { id: string } }) 
 
           <Section letter="A" title="Phân loại">
             <InfoRow label="Nhóm cây"        value={group1?.name} />
+            <InfoRow label="Nhóm cây phụ"    value={group1b?.name} />
             <InfoRow label="Phân loại cấp 2" value={group2?.name} />
             {climates.map((c: any)  => <InfoRow key={c.id} label="Khí hậu"   value={c.name} />)}
             {functions.map((f: any) => <InfoRow key={f.id} label="Chức năng" value={f.name} />)}
