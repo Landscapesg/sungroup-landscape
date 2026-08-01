@@ -57,9 +57,14 @@ export default function PlantDetailPage({ params }: { params: { id: string } }) 
   const unitObjects = (plant.she_unit_ids || [])
     .map((id: string) => sheUnits.find(u => u.id === id)).filter(Boolean)
 
-  const heightText = plant.height_min_m && plant.height_max_m
-    ? `${plant.height_min_m}–${plant.height_max_m}m`
-    : plant.height_min_m ? `${plant.height_min_m}m` : ''
+  const heightText = plant.height_max_m ? `${plant.height_max_m}m` : ''
+
+  const originLabels: Record<string, string> = {
+    native: 'Cây bản địa',
+    naturalized: 'Cây du nhập đã thích nghi',
+    imported: 'Cây ngoại nhập',
+  }
+  const originText = plant.origin_type ? originLabels[plant.origin_type] || plant.origin_type : ''
 
   const currentImgUrl =
     activeImg === 'cover'  ? plant.cover_image_url
@@ -205,20 +210,25 @@ export default function PlantDetailPage({ params }: { params: { id: string } }) 
           </Section>
 
           <Section letter="B" title="Đặc điểm sinh học">
-            <InfoRow label="Chiều cao"       value={heightText} />
-            <InfoRow label="Màu sắc hoa"     value={plant.flower_color_text} />
-            <InfoRow label="Thời điểm nở rộ" value={plant.blooming_period_text} />
-            <InfoRow label="Ánh sáng"        value={plant.light_requirement} />
-            <InfoRow label="Nước & độ ẩm"    value={plant.water_requirement} />
-            <InfoRow label="Đất trồng"       value={plant.soil_requirement} />
-            <InfoRow label="Nhiệt độ"        value={plant.temperature_range} />
+            <InfoRow label="Chiều cao tối đa"        value={heightText} />
+            <InfoRow label="Đường kính thân"         value={plant.trunk_diameter_cm ? `${plant.trunk_diameter_cm} cm` : ''} />
+            <InfoRow label="Đường kính tán tối đa"   value={plant.canopy_diameter_max_m ? `${plant.canopy_diameter_max_m} m` : ''} />
+            <InfoRow label="Nguồn gốc cây"           value={originText} />
+            <InfoRow label="Màu sắc hoa"             value={plant.flower_color_text} />
+            <InfoRow label="Thời điểm nở rộ"         value={plant.blooming_period_text} />
+            <InfoRow label="Ánh sáng"                value={plant.light_requirement} />
+            <InfoRow label="Nước & độ ẩm"            value={plant.water_requirement} />
+            <InfoRow label="Đất trồng"               value={plant.soil_requirement} />
+            <InfoRow label="Nhiệt độ"                value={plant.temperature_range} />
           </Section>
 
-          <Section letter="C" title="Kỹ thuật & ứng dụng">
-            <InfoRow label="Kỹ thuật trồng"    value={plant.planting_technique} />
-            <InfoRow label="Nhân giống"         value={plant.propagation} />
-            <InfoRow label="Ứng dụng cảnh quan" value={plant.landscape_application} />
-          </Section>
+          {(plant.planting_technique || plant.propagation || plant.landscape_application) && (
+            <Section letter="C" title="Kỹ thuật & ứng dụng">
+              <InfoRow label="Kỹ thuật trồng"    value={plant.planting_technique} />
+              <InfoRow label="Nhân giống"         value={plant.propagation} />
+              <InfoRow label="Ứng dụng cảnh quan" value={plant.landscape_application} />
+            </Section>
+          )}
 
           {(plant.she_experience || plant.she_risks) && (
             <Section letter="D" title="Kinh nghiệm Khối SHE">
