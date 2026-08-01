@@ -13,7 +13,7 @@ export default function StatisticsPage() {
   useEffect(() => {
     async function load() {
       const [p, g, u] = await Promise.all([
-        supabase.from('plants').select('id, group_lv1_id, group_lv2_id, she_unit_ids, status'),
+        supabase.from('plants').select('id, group_lv1_id, group_lv1_id_2, group_lv2_id, she_unit_ids, status'),
         supabase.from('plant_groups').select('*').order('sort_order'),
         supabase.from('she_units').select('*').order('sort_order'),
       ])
@@ -31,10 +31,12 @@ export default function StatisticsPage() {
   const groups2 = groups.filter(g => g.level === 2)
   const MANGS = ['Giải trí', 'Nghỉ dưỡng - Tự vận hành', 'Nghỉ dưỡng - Thuê quản lý', 'Sân golf']
 
-  // Thống kê theo nhóm Cấp 1
+  // Thống kê theo nhóm Cấp 1 (tính cả cây có nhóm này là nhóm phụ)
   const byGroup1 = groups1.map(g => ({
     ...g,
-    count: plants.filter(p => p.group_lv1_id === g.id).length,
+    count: plants.filter(p => p.group_lv1_id === g.id || p.group_lv1_id_2 === g.id).length,
+    countChinh: plants.filter(p => p.group_lv1_id === g.id).length,
+    countPhu: plants.filter(p => p.group_lv1_id_2 === g.id).length,
     subGroups: groups2.filter(g2 => g2.parent_id === g.id).map(g2 => ({
       ...g2,
       count: plants.filter(p => p.group_lv2_id === g2.id).length
@@ -89,7 +91,9 @@ export default function StatisticsPage() {
               <div key={g.id}>
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-sm font-medium text-gray-700">{g.name}</span>
-                  <span className="text-sm font-semibold text-forest-700">{g.count}</span>
+                  <span className="text-sm font-semibold text-forest-700">
+                    {g.count}{g.countPhu > 0 && <span className="text-xs text-gray-400 font-normal ml-1">({g.countChinh} chính + {g.countPhu} phụ)</span>}
+                  </span>
                 </div>
                 <div className="w-full bg-gray-100 rounded-full h-2">
                   <div className="bg-forest-500 h-2 rounded-full transition-all" style={{ width: `${(g.count / maxGroupCount) * 100}%` }} />
