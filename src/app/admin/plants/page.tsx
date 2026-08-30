@@ -146,7 +146,9 @@ export default function AdminPlantsPage() {
         <BulkImageImport
           plants={plants}
           onClose={() => setShowBulkImageImport(false)}
-          onComplete={() => window.location.reload()}
+          // Giữ modal mở để người dùng đọc báo cáo thành công/lỗi.
+          // Danh sách phía sau sẽ được làm mới khi người dùng chủ động đóng/tải lại trang.
+          onComplete={() => {}}
         />
       )}
 
