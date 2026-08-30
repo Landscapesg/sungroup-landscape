@@ -2,7 +2,8 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import { Plus, Search, Edit2, Leaf, BarChart2, Download, Trash2, FileText, FileSpreadsheet, X, AlertTriangle } from 'lucide-react'
+import BulkImageImport from '@/components/BulkImageImport'
+import { Plus, Search, Edit2, Leaf, BarChart2, Download, Trash2, FileText, FileSpreadsheet, X, AlertTriangle, FileArchive } from 'lucide-react'
 
 export default function AdminPlantsPage() {
   const [plants, setPlants]       = useState<any[]>([])
@@ -22,6 +23,7 @@ export default function AdminPlantsPage() {
   // export dropdown
   const [showExport, setShowExport] = useState(false)
   const [exporting, setExporting]   = useState<'excel'|'csv'|null>(null)
+  const [showBulkImageImport, setShowBulkImageImport] = useState(false)
 
   const MANGS = ['Giải trí', 'Nghỉ dưỡng - Tự vận hành', 'Nghỉ dưỡng - Thuê quản lý', 'Sân golf']
 
@@ -140,6 +142,14 @@ export default function AdminPlantsPage() {
 
   return (
     <div>
+      {showBulkImageImport && (
+        <BulkImageImport
+          plants={plants}
+          onClose={() => setShowBulkImageImport(false)}
+          onComplete={() => window.location.reload()}
+        />
+      )}
+
       {/* ── CONFIRM XOÁ ── */}
       {deleteTarget && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
@@ -176,6 +186,10 @@ export default function AdminPlantsPage() {
         </div>
         <div className="flex gap-2 items-center relative">
           <Link href="/admin/plants/statistics" className="btn-secondary"><BarChart2 size={15} />Thống kê</Link>
+
+          <button onClick={() => setShowBulkImageImport(true)} className="btn-secondary">
+            <FileArchive size={15} />Nhập ảnh ZIP
+          </button>
 
           {/* Nút xuất file */}
           <div className="relative">
