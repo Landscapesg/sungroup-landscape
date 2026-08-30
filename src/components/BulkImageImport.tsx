@@ -32,6 +32,7 @@ type ImportRow = {
   coverId: string
   detailId: string
   applicationId: string
+  skipped: boolean
   status: 'ready' | 'uploading' | 'done' | 'error'
   message?: string
 }
@@ -60,22 +61,23 @@ function matchPlant(folderName: string, plants: Plant[]) {
   if (!target) return ''
   let best = { id: '', score: 0 }
   for (const plant of plants) {
-    const names = [plant.name_vi, plant.scientific_name || '', ...(plant.other_names || [])]
+    // Chỉ tự ghép bằng tên chính/tên khoa học. Tên khác chỉ nên chọn thủ công
+    // vì dữ liệu alias có thể trùng giữa các cây gần tên nhau.
+    const names = [plant.name_vi, plant.scientific_name || '']
     for (const name of names) {
       const candidate = normalize(name)
       if (!candidate) continue
       let score = candidate === target ? 100 : 0
       if (!score && (candidate.includes(target) || target.includes(candidate))) score = 80
-      if (!score) {
-        const a = new Set(tokens(target))
-        const b = new Set(tokens(candidate))
-        const overlap = Array.from(a).filter(x => b.has(x)).length
-        score = Math.round((overlap / Math.max(a.size, b.size, 1)) * 70)
-      }
       if (score > best.score) best = { id: plant.id, score }
     }
   }
-  return best.score >= 45 ? best.id : ''
+  return best.score >= 80 ? best.id : ''
+}
+
+function needsReview(row: ImportRow) {
+  const ids = [row.coverId, row.detailId, row.applicationId]
+  return !row.plantId || ids.some(id => !id) || new Set(ids).size < 3
 }
 
 function roleScore(image: ZipImage, role: 'cover' | 'detail' | 'application') {
@@ -115,6 +117,7 @@ export default function BulkImageImport({ plants, onClose, onComplete }: {
   const [reading, setReading] = useState(false)
   const [running, setRunning] = useState(false)
   const [preserveExisting, setPreserveExisting] = useState(true)
+  const [reviewOnly, setReviewOnly] = useState(false)
   const [summary, setSummary] = useState('')
 
   const plantById = useMemo(() => new Map(plants.map(p => [p.id, p])), [plants])
@@ -152,11 +155,14 @@ export default function BulkImageImport({ plants, onClose, onComplete }: {
       }
       const nextRows = Array.from(grouped.values()).map(images => {
         const selected = chooseImages(images)
+        const plantId = matchPlant(images[0].folderName, plants)
+        const skipped = !plantId || !selected.coverId || !selected.detailId || !selected.applicationId
         return {
           folderName: images[0].folderName,
-          plantId: matchPlant(images[0].folderName, plants),
+          plantId,
           images: images.sort((a, b) => b.priority - a.priority || a.fileName.localeCompare(b.fileName, 'vi')),
           ...selected,
+          skipped,
           status: 'ready' as const,
         }
       }).sort((a, b) => a.folderName.localeCompare(b.folderName, 'vi', { numeric: true }))
@@ -184,7 +190,8 @@ export default function BulkImageImport({ plants, onClose, onComplete }: {
   }
 
   async function runImport() {
-    const invalid = rows.filter(r => !r.plantId || !r.coverId || !r.detailId || !r.applicationId)
+    const activeRows = rows.filter(r => !r.skipped)
+    const invalid = activeRows.filter(needsReview)
     if (invalid.length) {
       alert(`Còn ${invalid.length} thư mục chưa ghép đủ cây và 3 ảnh.`)
       return
@@ -194,6 +201,7 @@ export default function BulkImageImport({ plants, onClose, onComplete }: {
     let errors = 0
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i]
+      if (row.skipped) continue
       updateRow(i, { status: 'uploading', message: 'Đang tải...' })
       try {
         const plant = plantById.get(row.plantId)!
@@ -221,7 +229,9 @@ export default function BulkImageImport({ plants, onClose, onComplete }: {
     onComplete()
   }
 
-  const unresolved = rows.filter(r => !r.plantId || !r.coverId || !r.detailId || !r.applicationId).length
+  const unresolved = rows.filter(needsReview).length
+  const skipped = rows.filter(r => r.skipped).length
+  const importable = rows.length - skipped
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 p-4 overflow-y-auto">
@@ -251,12 +261,12 @@ export default function BulkImageImport({ plants, onClose, onComplete }: {
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-2 text-sm">
                   {unresolved ? <AlertTriangle size={16} className="text-amber-500" /> : <CheckCircle2 size={16} className="text-green-600" />}
-                  <span>{rows.length} thư mục · {unresolved} dòng cần kiểm tra</span>
+                  <span>{rows.length} thư mục · {unresolved} dòng cần kiểm tra · {skipped} dòng đang bỏ qua</span>
                 </div>
-                <label className="flex items-center gap-2 text-sm text-gray-700">
-                  <input type="checkbox" checked={preserveExisting} onChange={e => setPreserveExisting(e.target.checked)} disabled={running} className="accent-forest-600" />
-                  Giữ nguyên ảnh cây đã có
-                </label>
+                <div className="flex flex-wrap gap-4">
+                  <label className="flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" checked={reviewOnly} onChange={e => setReviewOnly(e.target.checked)} disabled={running} className="accent-forest-600" />Chỉ hiện dòng cần kiểm tra/bỏ qua</label>
+                  <label className="flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" checked={preserveExisting} onChange={e => setPreserveExisting(e.target.checked)} disabled={running} className="accent-forest-600" />Giữ nguyên ảnh cây đã có</label>
+                </div>
               </div>
 
               <div className="overflow-x-auto border border-gray-200 rounded-xl">
@@ -266,14 +276,14 @@ export default function BulkImageImport({ plants, onClose, onComplete }: {
                   </thead>
                   <tbody>
                     {rows.map((row, i) => (
-                      <tr key={`${row.folderName}-${i}`} className={`border-t border-gray-100 ${!row.plantId ? 'bg-amber-50' : ''}`}>
+                      <tr key={`${row.folderName}-${i}`} className={`border-t border-gray-100 ${reviewOnly && !row.skipped && !needsReview(row) ? 'hidden' : ''} ${row.skipped ? 'bg-gray-50 opacity-70' : needsReview(row) ? 'bg-amber-50' : ''}`}>
                         <td className="p-3 align-top"><p className="font-medium text-gray-800">{row.folderName}</p><p className="text-xs text-gray-400">{row.images.length} ảnh</p></td>
-                        <td className="p-3 align-top"><select className="input text-xs" value={row.plantId} disabled={running} onChange={e => updateRow(i, { plantId: e.target.value })}><option value="">-- Chọn cây --</option>{plants.map(p => <option key={p.id} value={p.id}>{p.name_vi}</option>)}</select></td>
+                        <td className="p-3 align-top"><select className="input text-xs" value={row.plantId} disabled={running || row.skipped} onChange={e => updateRow(i, { plantId: e.target.value })}><option value="">-- Chọn cây --</option>{plants.map(p => <option key={p.id} value={p.id}>{p.name_vi}</option>)}</select></td>
                         {(['coverId', 'detailId', 'applicationId'] as const).map(key => {
                           const image = row.images.find(x => x.id === row[key])
-                          return <td key={key} className="p-3 align-top w-48">{image && <img src={image.previewUrl} alt="" className="w-32 h-24 object-cover rounded-lg border mb-2" />}<select className="input text-xs" value={row[key]} disabled={running} onChange={e => updateRow(i, { [key]: e.target.value })}><option value="">-- Chọn ảnh --</option>{row.images.map(img => <option key={img.id} value={img.id}>{img.priority === 2 ? '★ BN · ' : ''}{img.fileName}</option>)}</select></td>
+                          return <td key={key} className="p-3 align-top w-48">{image && <img src={image.previewUrl} alt="" className="w-32 h-24 object-cover rounded-lg border mb-2" />}<select className="input text-xs" value={row[key]} disabled={running || row.skipped} onChange={e => updateRow(i, { [key]: e.target.value })}><option value="">-- Chọn ảnh --</option>{row.images.map(img => <option key={img.id} value={img.id}>{img.priority === 2 ? '★ BN · ' : ''}{img.fileName}</option>)}</select></td>
                         })}
-                        <td className="p-3 align-top text-xs"><span className={row.status === 'done' ? 'text-green-600' : row.status === 'error' ? 'text-red-600' : row.status === 'uploading' ? 'text-blue-600' : 'text-gray-400'}>{row.message || 'Sẵn sàng'}</span></td>
+                        <td className="p-3 align-top text-xs"><label className="flex items-center gap-2 mb-2"><input type="checkbox" checked={row.skipped} onChange={e => updateRow(i, { skipped: e.target.checked })} disabled={running} className="accent-forest-600" />Bỏ qua</label><span className={row.status === 'done' ? 'text-green-600' : row.status === 'error' ? 'text-red-600' : row.status === 'uploading' ? 'text-blue-600' : needsReview(row) ? 'text-amber-600' : 'text-gray-400'}>{row.message || (needsReview(row) ? 'Cần kiểm tra' : 'Sẵn sàng')}</span></td>
                       </tr>
                     ))}
                   </tbody>
@@ -282,7 +292,7 @@ export default function BulkImageImport({ plants, onClose, onComplete }: {
 
               <div className="flex justify-end gap-3 sticky bottom-0 bg-white py-3 border-t border-gray-100">
                 <button className="btn-secondary" onClick={onClose} disabled={running}>Đóng</button>
-                <button className="btn-primary" onClick={runImport} disabled={running || unresolved > 0}>{running ? <><Loader2 size={16} className="animate-spin" />Đang cập nhật...</> : <>Cập nhật {rows.length} cây</>}</button>
+                <button className="btn-primary" onClick={runImport} disabled={running || importable === 0 || rows.some(r => !r.skipped && needsReview(r))}>{running ? <><Loader2 size={16} className="animate-spin" />Đang cập nhật...</> : <>Cập nhật {importable} cây</>}</button>
               </div>
             </>
           )}
