@@ -69,7 +69,7 @@ function matchPlant(folderName: string, plants: Plant[]) {
       if (!score) {
         const a = new Set(tokens(target))
         const b = new Set(tokens(candidate))
-        const overlap = [...a].filter(x => b.has(x)).length
+        const overlap = Array.from(a).filter(x => b.has(x)).length
         score = Math.round((overlap / Math.max(a.size, b.size, 1)) * 70)
       }
       if (score > best.score) best = { id: plant.id, score }
@@ -150,7 +150,7 @@ export default function BulkImageImport({ plants, onClose, onComplete }: {
           grouped.set(key, [...(grouped.get(key) || []), image])
         }
       }
-      const nextRows = [...grouped.values()].map(images => {
+      const nextRows = Array.from(grouped.values()).map(images => {
         const selected = chooseImages(images)
         return {
           folderName: images[0].folderName,
