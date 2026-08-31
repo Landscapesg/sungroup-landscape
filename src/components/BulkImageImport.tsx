@@ -42,42 +42,30 @@ const MAX_ARCHIVE_BYTES = 800 * 1024 * 1024
 
 function normalize(value: string) {
   return value
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .replace(/^\s*\d+\s*[.\-_)]*\s*/, '')
-    .replace(/\b(cay|hoa|anh|hinh|chup|mang|bo sung|ba na|bana|bn)\b/g, ' ')
+    .replace(/^\s*(cay|anh|hinh|chup)\s+/, '')
     .replace(/[^a-z0-9]+/g, ' ')
     .trim()
     .replace(/\s+/g, ' ')
 }
 
-function tokens(value: string) {
-  return normalize(value).split(' ').filter(x => x.length > 1)
-}
-
 function matchPlant(folderName: string, plants: Plant[]) {
   const target = normalize(folderName)
   if (!target) return ''
-  let best = { id: '', score: 0 }
-  for (const plant of plants) {
-    // Chỉ tự ghép bằng tên chính/tên khoa học. Tên khác chỉ nên chọn thủ công
-    // vì dữ liệu alias có thể trùng giữa các cây gần tên nhau.
-    const names = [plant.name_vi, plant.scientific_name || '']
-    for (const name of names) {
-      const candidate = normalize(name)
-      if (!candidate) continue
-      let score = candidate === target ? 100 : 0
-      if (!score && (candidate.includes(target) || target.includes(candidate))) score = 80
-      if (score > best.score) best = { id: plant.id, score }
-    }
-  }
-  return best.score >= 80 ? best.id : ''
-}
 
-function needsReview(row: ImportRow) {
-  const ids = [row.coverId, row.detailId, row.applicationId]
-  return !row.plantId || ids.some(id => !id) || new Set(ids).size < 3
+  // Chỉ tự ghép khi tên Việt/tên khoa học/tên gọi khác trùng hoàn toàn
+  // và chỉ dẫn đến duy nhất một cây. Mọi trường hợp tên chứa nhau phải rà thủ công.
+  const matches = new Set<string>()
+  for (const plant of plants) {
+    const names = [plant.name_vi, plant.scientific_name || '', ...(plant.other_names || [])]
+    if (names.some(name => normalize(name) === target)) matches.add(plant.id)
+  }
+  return matches.size === 1 ? Array.from(matches)[0] : ''
 }
 
 function roleScore(image: ZipImage, role: 'cover' | 'detail' | 'application') {
@@ -278,7 +266,7 @@ export default function BulkImageImport({ plants, onClose, onComplete }: {
                     {rows.map((row, i) => (
                       <tr key={`${row.folderName}-${i}`} className={`border-t border-gray-100 ${reviewOnly && !row.skipped && !needsReview(row) ? 'hidden' : ''} ${row.skipped ? 'bg-gray-50 opacity-70' : needsReview(row) ? 'bg-amber-50' : ''}`}>
                         <td className="p-3 align-top"><p className="font-medium text-gray-800">{row.folderName}</p><p className="text-xs text-gray-400">{row.images.length} ảnh</p></td>
-                        <td className="p-3 align-top"><select className="input text-xs" value={row.plantId} disabled={running || row.skipped} onChange={e => updateRow(i, { plantId: e.target.value })}><option value="">-- Chọn cây --</option>{plants.map(p => <option key={p.id} value={p.id}>{p.name_vi}</option>)}</select></td>
+                        <td className="p-3 align-top"><select className="input text-xs" value={row.plantId} disabled={running || row.skipped} onChange={e => updateRow(i, { plantId: e.target.value })}><option value="">-- Chọn cây --</option>{plants.map(p => <option key={p.id} value={p.id}>{p.name_vi}{p.scientific_name ? ` · ${p.scientific_name}` : ''}{p.other_names?.length ? ` · Còn gọi: ${p.other_names.join(', ')}` : ''}</option>)}</select></td>
                         {(['coverId', 'detailId', 'applicationId'] as const).map(key => {
                           const image = row.images.find(x => x.id === row[key])
                           return <td key={key} className="p-3 align-top w-48">{image && <img src={image.previewUrl} alt="" className="w-32 h-24 object-cover rounded-lg border mb-2" />}<select className="input text-xs" value={row[key]} disabled={running || row.skipped} onChange={e => updateRow(i, { [key]: e.target.value })}><option value="">-- Chọn ảnh --</option>{row.images.map(img => <option key={img.id} value={img.id}>{img.priority === 2 ? '★ BN · ' : ''}{img.fileName}</option>)}</select></td>
