@@ -68,6 +68,11 @@ function matchPlant(folderName: string, plants: Plant[]) {
   return matches.size === 1 ? Array.from(matches)[0] : ''
 }
 
+function needsReview(row: ImportRow) {
+  const ids = [row.coverId, row.detailId, row.applicationId]
+  return !row.plantId || ids.some(id => !id) || new Set(ids).size < 3
+}
+
 function roleScore(image: ZipImage, role: 'cover' | 'detail' | 'application') {
   const n = normalize(image.fileName)
   const keywords = {
