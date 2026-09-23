@@ -2,7 +2,22 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import { ArrowLeft, Leaf, TreePine, Pencil } from 'lucide-react'
+import { ArrowLeft, Leaf, TreePine, Pencil, Download, Loader2 } from 'lucide-react'
+
+const IMAGE_SLOTS = [
+  { field: 'cover_image_url' as const,       label: 'Tổng thể' },
+  { field: 'flower_leaf_image_url' as const, label: 'Hoa lá' },
+  { field: 'application_image_url' as const, label: 'Ứng dụng' },
+]
+
+function sanitizeFileName(name: string) {
+  return name.replace(/[\\/:*?"<>|]/g, '').trim()
+}
+
+function guessExt(url: string) {
+  const raw = url.split('?')[0].split('.').pop()?.toLowerCase() || ''
+  return /^(jpe?g|png|webp|gif)$/.test(raw) ? (raw === 'jpeg' ? 'jpg' : raw) : 'jpg'
+}
 
 interface Unit { id: string; code: string; name: string }
 
@@ -16,6 +31,7 @@ export default function PlantDetailPage({ params }: { params: { id: string } }) 
   const [functions, setFunctions] = useState<any[]>([])
   const [loading, setLoading]     = useState(true)
   const [activeImg, setActiveImg] = useState<'cover'|'flower'|'app'>('cover')
+  const [downloading, setDownloading] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -72,6 +88,36 @@ export default function PlantDetailPage({ params }: { params: { id: string } }) 
     activeImg === 'cover'  ? plant.cover_image_url
     : activeImg === 'flower' ? plant.flower_leaf_image_url
     : plant.application_image_url
+
+  // Tải ảnh gốc của cây này (ZIP), đặt tên file theo quy ước "<Tên cây>-<Loại ảnh>"
+  async function downloadPlantImages() {
+    setDownloading(true)
+    try {
+      const JSZip = (await import('jszip')).default
+      const zip = new JSZip()
+      let count = 0
+      for (const { field, label } of IMAGE_SLOTS) {
+        const url = plant[field] as string | undefined
+        if (!url) continue
+        try {
+          const res = await fetch(url)
+          if (!res.ok) continue
+          const blob = await res.blob()
+          const ext = guessExt(url)
+          zip.file(sanitizeFileName(`${plant.name_vi}-${label}.${ext}`), blob)
+          count++
+        } catch { /* bỏ qua ảnh lỗi */ }
+      }
+      if (!count) { alert('Cây này chưa có ảnh nào để tải.'); return }
+      const blob = await zip.generateAsync({ type: 'blob' })
+      const url  = URL.createObjectURL(blob)
+      const a    = document.createElement('a'); a.href = url
+      a.download = sanitizeFileName(`${plant.name_vi}-anh-goc.zip`)
+      a.click(); URL.revokeObjectURL(url)
+    } finally {
+      setDownloading(false)
+    }
+  }
 
   const InfoRow = ({ label, value }: { label: string; value?: string }) => {
     if (!value) return null
@@ -192,6 +238,16 @@ export default function PlantDetailPage({ params }: { params: { id: string } }) 
               </button>
             ))}
           </div>
+
+          {/* nút tải ảnh gốc */}
+          <button
+            onClick={downloadPlantImages}
+            disabled={downloading}
+            className="w-full flex items-center justify-center gap-1.5 text-xs font-medium text-forest-600 border border-forest-200 hover:bg-forest-50 rounded-lg py-2 mb-5 transition-colors disabled:opacity-50"
+          >
+            {downloading ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
+            {downloading ? 'Đang tải...' : 'Tải ảnh gốc (ZIP)'}
+          </button>
 
           {/* mô tả — luôn hiện dưới thumbnail ở cả 2 màn hình */}
           {(plant.description || plant.landscape_application) && (
