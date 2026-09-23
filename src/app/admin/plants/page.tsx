@@ -3,7 +3,23 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import BulkImageImport from '@/components/BulkImageImport'
-import { Plus, Search, Edit2, Leaf, BarChart2, Download, Trash2, FileText, FileSpreadsheet, X, AlertTriangle, FileArchive } from 'lucide-react'
+import { Plus, Search, Edit2, Leaf, BarChart2, Download, Trash2, FileText, FileSpreadsheet, X, AlertTriangle, FileArchive, Image as ImageIcon, Loader2 } from 'lucide-react'
+
+// 3 loại ảnh cố định của mỗi cây — tên file tải xuống theo đúng quy ước "<Tên cây>-<Loại ảnh>"
+const IMAGE_SLOTS = [
+  { field: 'cover_image_url' as const,        label: 'Tổng thể' },
+  { field: 'flower_leaf_image_url' as const,  label: 'Hoa lá' },
+  { field: 'application_image_url' as const,  label: 'Ứng dụng' },
+]
+
+function sanitizeFileName(name: string) {
+  return name.replace(/[\\/:*?"<>|]/g, '').trim()
+}
+
+function guessExt(url: string) {
+  const raw = url.split('?')[0].split('.').pop()?.toLowerCase() || ''
+  return /^(jpe?g|png|webp|gif)$/.test(raw) ? (raw === 'jpeg' ? 'jpg' : raw) : 'jpg'
+}
 
 export default function AdminPlantsPage() {
   const [plants, setPlants]       = useState<any[]>([])
@@ -24,6 +40,11 @@ export default function AdminPlantsPage() {
   const [showExport, setShowExport] = useState(false)
   const [exporting, setExporting]   = useState<'excel'|'csv'|null>(null)
   const [showBulkImageImport, setShowBulkImageImport] = useState(false)
+
+  // tải ảnh gốc (ZIP)
+  const [downloadingImages, setDownloadingImages] = useState(false)
+  const [imageProgress, setImageProgress]         = useState({ done: 0, total: 0 })
+  const [imageReport, setImageReport]             = useState<{ scanned: number; downloaded: number; missing: { name: string; types: string[] }[] } | null>(null)
 
   const MANGS = ['Giải trí', 'Nghỉ dưỡng - Tự vận hành', 'Nghỉ dưỡng - Thuê quản lý', 'Sân golf']
 
@@ -140,6 +161,71 @@ export default function AdminPlantsPage() {
     setExporting(null)
   }
 
+  // ── TẢI ẢNH GỐC (ZIP) ────────────────────────────────────────────────────
+  // Tải toàn bộ ảnh "Tổng thể / Hoa lá / Ứng dụng" của các cây, đặt tên file
+  // theo đúng quy ước "<Tên cây>-<Loại ảnh>" để anh Phúc ghép 3 ảnh thành 1.
+  // Cây nào thiếu ảnh sẽ được liệt kê trong báo cáo (cả trên màn hình lẫn
+  // trong file _DANH_SACH_THIEU_ANH.txt bên trong ZIP).
+  async function exportImages(all: boolean) {
+    setShowExport(false)
+    setDownloadingImages(true)
+    setImageReport(null)
+    let list = plants
+    if (all) {
+      const { data } = await supabase.from('plants').select('id, name_vi, cover_image_url, flower_leaf_image_url, application_image_url').order('name_vi')
+      list = data || []
+    }
+    setImageProgress({ done: 0, total: list.length })
+
+    const JSZip = (await import('jszip')).default
+    const zip = new JSZip()
+    const missing: { name: string; types: string[] }[] = []
+    let downloaded = 0
+    const usedNames = new Set<string>()
+
+    for (let i = 0; i < list.length; i++) {
+      const p = list[i]
+      const missingTypes: string[] = []
+      for (const { field, label } of IMAGE_SLOTS) {
+        const url = p[field] as string | null | undefined
+        if (!url) { missingTypes.push(label); continue }
+        try {
+          const res = await fetch(url)
+          if (!res.ok) throw new Error('fetch failed')
+          const blob = await res.blob()
+          const ext = guessExt(url)
+          let fileName = sanitizeFileName(`${p.name_vi}-${label}.${ext}`)
+          // tránh trùng tên nếu có 2 cây cùng tên_vi
+          if (usedNames.has(fileName)) fileName = sanitizeFileName(`${p.name_vi}-${label}-${p.id.slice(0, 4)}.${ext}`)
+          usedNames.add(fileName)
+          zip.file(fileName, blob)
+          downloaded++
+        } catch {
+          missingTypes.push(`${label} (lỗi tải ảnh)`)
+        }
+      }
+      if (missingTypes.length) missing.push({ name: p.name_vi, types: missingTypes })
+      setImageProgress({ done: i + 1, total: list.length })
+    }
+
+    const reportLines = [
+      'DANH SÁCH CÂY THIẾU ẢNH',
+      `Tổng số cây kiểm tra: ${list.length} — Đã tải: ${downloaded} ảnh — Thiếu: ${missing.length} cây`,
+      '',
+      ...(missing.length ? missing.map(m => `- ${m.name}: thiếu ${m.types.join(', ')}`) : ['(Không có cây nào thiếu ảnh)']),
+    ]
+    zip.file('_DANH_SACH_THIEU_ANH.txt', '﻿' + reportLines.join('\r\n'))
+
+    const blob = await zip.generateAsync({ type: 'blob' })
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a'); a.href = url
+    a.download = all ? 'anh-cay-tat-ca.zip' : 'anh-cay-loc.zip'
+    a.click(); URL.revokeObjectURL(url)
+
+    setImageReport({ scanned: list.length, downloaded, missing })
+    setDownloadingImages(false)
+  }
+
   return (
     <div>
       {showBulkImageImport && (
@@ -198,10 +284,10 @@ export default function AdminPlantsPage() {
             <button
               onClick={() => setShowExport(!showExport)}
               className="btn-secondary flex items-center gap-1.5"
-              disabled={!!exporting}
+              disabled={!!exporting || downloadingImages}
             >
               <Download size={15} />
-              {exporting ? 'Đang xuất...' : 'Xuất file'}
+              {exporting ? 'Đang xuất...' : downloadingImages ? `Đang tải ảnh ${imageProgress.done}/${imageProgress.total}...` : 'Xuất file'}
             </button>
             {showExport && (
               <div className="absolute right-0 top-full mt-1 w-56 bg-white border border-gray-100 rounded-xl shadow-lg z-20 overflow-hidden">
@@ -222,6 +308,15 @@ export default function AdminPlantsPage() {
                 </button>
                 <button onClick={() => exportCSV(true)} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
                   <FileText size={15} className="text-blue-600" />CSV — tất cả
+                </button>
+                <div className="px-3 py-2 border-t border-gray-100">
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Tải ảnh gốc (ZIP)</p>
+                </div>
+                <button onClick={() => exportImages(false)} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                  <ImageIcon size={15} className="text-amber-600" />Ảnh — theo bộ lọc ({plants.length} cây)
+                </button>
+                <button onClick={() => exportImages(true)} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                  <ImageIcon size={15} className="text-amber-600" />Ảnh — toàn bộ
                 </button>
               </div>
             )}
@@ -261,6 +356,44 @@ export default function AdminPlantsPage() {
           Chưa có lv2 {filterNoLv2 && `(${plants.length})`}
         </button>
       </div>
+
+      {/* ── BÁO CÁO ẢNH SAU KHI TẢI ── */}
+      {imageReport && (
+        <div className="card p-4 mb-5 border border-amber-200 bg-amber-50/40">
+          <div className="flex items-start justify-between gap-3 mb-2">
+            <div>
+              <p className="text-sm font-medium text-amber-800">
+                Đã tải xong ZIP ảnh: {imageReport.downloaded} ảnh trong tổng số {imageReport.scanned} cây được kiểm tra.
+              </p>
+              {imageReport.missing.length > 0 ? (
+                <p className="text-xs text-amber-700 mt-0.5">
+                  {imageReport.missing.length} cây còn thiếu ảnh (chi tiết bên dưới, và trong file _DANH_SACH_THIEU_ANH.txt bên trong ZIP) — cần bổ sung.
+                </p>
+              ) : (
+                <p className="text-xs text-green-700 mt-0.5">Không có cây nào thiếu ảnh.</p>
+              )}
+            </div>
+            <button onClick={() => setImageReport(null)} className="p-1 rounded-lg hover:bg-amber-100 text-amber-500 flex-shrink-0">
+              <X size={15} />
+            </button>
+          </div>
+          {imageReport.missing.length > 0 && (
+            <div className="max-h-48 overflow-y-auto mt-2 border-t border-amber-200 pt-2">
+              <ul className="text-xs text-gray-700 space-y-1">
+                {imageReport.missing.map(m => (
+                  <li key={m.name}><span className="font-medium">{m.name}</span>: thiếu {m.types.join(', ')}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+      {downloadingImages && (
+        <div className="card p-4 mb-5 flex items-center gap-3 text-sm text-gray-500">
+          <Loader2 size={16} className="animate-spin text-forest-500" />
+          Đang tải ảnh gốc từ máy chủ... ({imageProgress.done}/{imageProgress.total} cây)
+        </div>
+      )}
 
       {/* ── TABLE ── */}
       <div className="card overflow-hidden">
